@@ -1,7 +1,7 @@
 # Blender 5.1.0 MTL File: 'Lumine.blend'
 # www.blender.org
 
-newmtl 头发
+newmtl Hair
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -9,9 +9,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/头发.png
+map_Kd Texture/Hair.png
 
-newmtl 手套
+newmtl Gloves
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -19,9 +19,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 皮肤
+newmtl Skin
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -29,9 +29,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 眼白
+newmtl EyeWhites
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -39,9 +39,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/脸.png
+map_Kd Texture/Face.png
 
-newmtl 眼睛
+newmtl Eyes
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -49,9 +49,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/头发.png
+map_Kd Texture/Hair.png
 
-newmtl 背饰
+newmtl BackAccessory
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -59,9 +59,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 脖子
+newmtl Neck
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -69,9 +69,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/脸.png
+map_Kd Texture/Face.png
 
-newmtl 脸
+newmtl Face
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -79,9 +79,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/脸.png
+map_Kd Texture/Face.png
 
-newmtl 衣服
+newmtl Clothes
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -89,9 +89,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 表情
+newmtl Expression
 Ns 403.895782
 Ka 1.000000 1.000000 1.000000
 Kd 1.000000 1.000000 1.000000
@@ -101,7 +101,7 @@ Ni 1.000000
 d 1.000000
 illum 2
 
-newmtl 裙子
+newmtl Skirt
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -109,9 +109,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 裤子
+newmtl Pants
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -119,9 +119,9 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
 
-newmtl 鞋子
+newmtl Shoes
 Ns 201.339569
 Ka 1.000000 1.000000 1.000000
 Ks 0.500000 0.500000 0.500000
@@ -129,4 +129,4 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd Texture/衣服.png
+map_Kd Texture/Clothes.png
