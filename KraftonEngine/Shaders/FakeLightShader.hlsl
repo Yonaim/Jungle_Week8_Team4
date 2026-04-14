@@ -40,7 +40,9 @@ float4 PS(PS_Input_Decal input) : SV_TARGET
     {
         discard;
     }
-
+    
     float4 finalColor = texColor * DecalColor;
+    finalColor.a *= 0.5f - length(decalLocalPos); // Decal 중심과의 거리에 따라 투명도 조절
+    
     return float4(ApplyWireframe(finalColor.rgb), finalColor.a);
 }
