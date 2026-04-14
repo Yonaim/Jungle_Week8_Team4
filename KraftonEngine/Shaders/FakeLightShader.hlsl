@@ -1,8 +1,8 @@
 #include "Common/Functions.hlsl"
 #include "Common/VertexLayouts.hlsl"
-#include "Common/SystemSamplers.hlsl"
 
 Texture2D g_txColor : register(t0);
+SamplerState g_Sample : register(s0);
 
 // b2 (PerShader0)
 cbuffer DecalBuffer : register(b2)
@@ -35,12 +35,14 @@ float4 PS(PS_Input_Decal input) : SV_TARGET
     uv.x = decalLocalPos.y + 0.5f;
     uv.y = 0.5f - decalLocalPos.z;
 
-    float4 texColor = g_txColor.Sample(LinearWrapSampler, uv);
+    float4 texColor = g_txColor.Sample(g_Sample, uv);
     if (texColor.a < 0.001f)
     {
         discard;
     }
-
+    
     float4 finalColor = texColor * DecalColor;
+    finalColor.a *= 0.5f - length(decalLocalPos); // Decal 중심과의 거리에 따라 투명도 조절
+    
     return float4(ApplyWireframe(finalColor.rgb), finalColor.a);
 }
