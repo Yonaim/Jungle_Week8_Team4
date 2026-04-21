@@ -56,17 +56,50 @@
         }
       },
       "bVisible" : true
+    }, {
+      "ClassName" : "AAmbientLightActor",
+      "NonSceneComponents" : [],
+      "RootComponent" : {
+        "Children" : [{
+            "Children" : [],
+            "ClassName" : "UBillboardComponent",
+            "Properties" : {
+              "Height" : 1.000000,
+              "Location" : [0.000000, 0.000000, 0.000000],
+              "Material" : {
+                "Path" : "Asset/Materials/AmbientLightIcon.json"
+              },
+              "Rotation" : [-0.000000, 0.000000, 0.000000],
+              "Scale" : [1.000000, 1.000000, 1.000000],
+              "Visible" : true,
+              "Width" : 1.000000,
+              "bTickEnable" : true
+            }
+          }],
+        "ClassName" : "UAmbientLightComponent",
+        "Properties" : {
+          "Intensity" : 0.500000,
+          "LightColor" : [0.663892, 0.896059, 0.935484, 1.000000],
+          "Location" : [0.000000, 59.720428, 0.000000],
+          "Rotation" : [-0.000000, 0.000000, 0.000000],
+          "Scale" : [1.000000, 1.000000, 1.000000],
+          "bAffectsWorld" : true,
+          "bCastShadows" : true,
+          "bTickEnable" : false
+        }
+      },
+      "bVisible" : true
     }],
   "ClassName" : "UWorld",
   "ContextHandle" : "Default",
   "ContextName" : "Default",
-  "Name" : "Default",
+  "Name" : "Gouraud",
   "PerspectiveCamera" : {
     "FOV" : 1.047198,
     "FarClip" : 1000.000000,
-    "Location" : [-65.358093, 214.617920, 23.516636],
+    "Location" : [-66.116592, 72.898621, 38.805660],
     "NearClip" : 0.100000,
-    "Rotation" : [-0.000000, 5.060897, -71.365822]
+    "Rotation" : [0.000000, 8.420881, -62.545868]
   },
   "Primitives" : {
     "8" : {
