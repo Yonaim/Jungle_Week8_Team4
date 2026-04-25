@@ -5,6 +5,7 @@
 #include "GameFramework/AActor.h"
 
 #include "ImGui/imgui.h"
+#include "Asset/AssetObjectManager.h"
 #include "Component/GizmoComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "Component/StaticMeshComponent.h"
@@ -15,7 +16,6 @@
 #include "Object/FName.h"
 #include "Object/ObjectIterator.h"
 #include "Materials/Material.h"
-#include "Mesh/ObjManager.h"
 #include "Mesh/StaticMesh.h"
 #include "Platform/Paths.h"
 
@@ -642,8 +642,8 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
 
         if (ImGui::BeginCombo("##Mesh", Preview.c_str()))
         {
-            FObjManager::ScanMeshAssets();
-            FObjManager::ScanObjSourceFiles();
+            FAssetObjectManager::Get().ScanStaticMeshAssets();
+            FAssetObjectManager::Get().ScanStaticMeshSourceFiles();
 
             bool bSelectedNone = (*Val == "None");
             if (ImGui::Selectable("None", bSelectedNone))
@@ -655,7 +655,7 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
                 ImGui::SetItemDefaultFocus();
 
             ImGui::TextDisabled("OBJ Source");
-            const TArray<FMeshAssetListItem>& ObjFiles = FObjManager::GetAvailableObjFiles();
+            const TArray<FMeshAssetListItem>& ObjFiles = FAssetObjectManager::Get().GetAvailableStaticMeshSourceFiles();
             for (const FMeshAssetListItem& Item : ObjFiles)
             {
                 const FString Label = Item.DisplayName + "##obj_" + Item.FullPath;
@@ -671,7 +671,7 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
 
             ImGui::Separator();
             ImGui::TextDisabled("Cached Mesh");
-            const TArray<FMeshAssetListItem>& MeshFiles = FObjManager::GetAvailableMeshFiles();
+            const TArray<FMeshAssetListItem>& MeshFiles = FAssetObjectManager::Get().GetAvailableStaticMeshAssets();
             for (const FMeshAssetListItem& Item : MeshFiles)
             {
                 const FString Label = Item.DisplayName + "##bin_" + Item.FullPath;
@@ -695,8 +695,7 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
             FString ObjPath = OpenObjFileDialog();
             if (!ObjPath.empty())
             {
-                ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-                UStaticMesh* Loaded = FObjManager::LoadObjStaticMesh(ObjPath, Device);
+                UStaticMesh* Loaded = FAssetObjectManager::Get().LoadStaticMeshObject(ObjPath);
                 if (Loaded)
                 {
                     *Val = ObjPath;

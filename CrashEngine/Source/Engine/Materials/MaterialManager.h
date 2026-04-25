@@ -14,6 +14,10 @@
 class FMaterialTemplate;
 class UMaterial;
 struct FMaterialConstantBuffer;
+namespace Asset
+{
+    struct FMtlCookedData;
+}
 
 // FMaterialAssetListItem는 머티리얼 파라미터와 렌더 리소스를 다룹니다.
 struct FMaterialAssetListItem
@@ -93,4 +97,7 @@ private:
     std::filesystem::path ResolveTexturePath(const FString& TexturePath, const FString& MatFilePath) const;
     std::vector<FMaterialFileDependency> CollectTextureDependencies(json::JSON& JsonData, const FString& MatFilePath) const;
     void RetireMaterialCacheEntry(FMaterialCacheEntry& Entry);
+    bool IsImportedMaterialAssetPath(const FString& FilePath) const;
+    UMaterial* GetOrCreateImportedMaterial(const FString& MaterialAssetPath);
+    void ApplyCookedMaterial(UMaterial* Material, const Asset::FMtlCookedData& CookedData);
 };

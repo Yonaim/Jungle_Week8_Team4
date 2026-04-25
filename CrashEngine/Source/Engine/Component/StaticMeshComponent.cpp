@@ -2,6 +2,7 @@
 #include "Component/StaticMeshComponent.h"
 #include <algorithm>
 #include <cmath>
+#include "Asset/AssetObjectManager.h"
 #include "Object/ObjectFactory.h"
 #include "Core/PropertyTypes.h"
 #include "Collision/RayUtils.h"
@@ -210,8 +211,7 @@ void UStaticMeshComponent::PostDuplicate()
     // Load the referenced mesh asset after duplication.
     if (!StaticMeshPath.empty() && StaticMeshPath != "None")
     {
-        ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-        UStaticMesh* Loaded = FObjManager::LoadObjStaticMesh(StaticMeshPath, Device);
+        UStaticMesh* Loaded = FAssetObjectManager::Get().LoadStaticMeshObject(StaticMeshPath);
         if (Loaded)
         {
             // Preserve serialized material slot data across SetStaticMesh.
@@ -268,8 +268,7 @@ void UStaticMeshComponent::PostEditProperty(const char* PropertyName)
         }
         else
         {
-            ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-            UStaticMesh* Loaded = FObjManager::LoadObjStaticMesh(StaticMeshPath, Device);
+            UStaticMesh* Loaded = FAssetObjectManager::Get().LoadStaticMeshObject(StaticMeshPath);
             SetStaticMesh(Loaded);
         }
         CacheLocalBounds();

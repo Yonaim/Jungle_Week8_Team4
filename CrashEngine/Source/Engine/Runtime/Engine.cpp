@@ -2,14 +2,13 @@
 #include "Render/Execute/Context/Scene/ViewTypes.h"
 #include "Engine/Runtime/Engine.h"
 
+#include "Asset/AssetObjectManager.h"
 #include "Platform/Paths.h"
 #include "Profiling/Stats.h"
 #include "Engine/Input/InputSystem.h"
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Resource/ResourceManager.h"
 #include "Render/Resources/Buffers/MeshBufferManager.h"
-#include "Mesh/ObjManager.h"
-#include "Texture/Texture2D.h"
 #include "GameFramework/World.h"
 #include "GameFramework/AActor.h"
 #include "Core/TickFunction.h"
@@ -51,14 +50,14 @@ void UEngine::Init(FWindowsWindow* InWindow)
 
     ID3D11Device* Device = Renderer.GetFD3DDevice().GetDevice();
     FMeshBufferManager::Get().Initialize(Device);
+    FAssetObjectManager::Get().Initialize(Device);
     FResourceManager::Get().LoadFromFile(FPaths::ToUtf8(FPaths::ResourceFilePath()), Device);
 }
 
 void UEngine::Shutdown()
 {
     FResourceManager::Get().ReleaseGPUResources();
-    UTexture2D::ReleaseAllGPU();
-    FObjManager::ReleaseAllGPU();
+    FAssetObjectManager::Get().Shutdown();
     FMeshBufferManager::Get().Release();
     Renderer.Release();
 }

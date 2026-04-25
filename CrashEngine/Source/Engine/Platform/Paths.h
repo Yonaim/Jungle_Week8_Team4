@@ -3,6 +3,9 @@
 
 #include <string>
 #include <filesystem>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 
 // FPaths는 엔진 영역의 핵심 동작을 담당합니다.
@@ -42,6 +45,9 @@ public:
     // std::filesystem::path 및 wide string을 UTF-8 문자열 경로로 변환
     static std::string FromPath(const std::filesystem::path& Path);
     static std::string FromWide(const std::wstring& WideStr);
+    static std::string Utf8FromPath(const std::filesystem::path& Path) { return FromPath(Path); }
+    static std::filesystem::path PathFromUtf8(const std::string& Utf8Path) { return ToPath(Utf8Path); }
+    static std::filesystem::path Normalize(const std::filesystem::path& Path);
 
     // BaseFilePath 기준으로 TargetPath를 실제 에셋 상대 경로로 해석합니다.
     static std::string ResolveAssetPath(const std::string& BaseFilePath, const std::string& TargetPath);

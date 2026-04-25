@@ -1,7 +1,7 @@
 ﻿// 메시 영역에서 공유되는 타입과 인터페이스를 정의합니다.
 #pragma once
 
-#include "Object/Object.h"
+#include "Asset/Asset.h"
 #include "Collision/BVH/MeshTriangleBVH.h"
 #include "Mesh/StaticMeshAsset.h"
 #include "Serialization/Archive.h"
@@ -9,6 +9,10 @@
 #include <memory>
 
 struct ID3D11Device;
+namespace Asset
+{
+struct FObjCookedData;
+}
 
 // LOD 단계별 GPU 리소스
 struct FLODMeshData
@@ -18,10 +22,10 @@ struct FLODMeshData
 };
 
 // UStaticMesh는 메시 데이터와 렌더 제출 정보를 다룹니다.
-class UStaticMesh : public UObject
+class UStaticMesh : public UAsset
 {
 public:
-    DECLARE_CLASS(UStaticMesh, UObject)
+    DECLARE_CLASS(UStaticMesh, UAsset)
 
     static constexpr uint32 MAX_LOD_COUNT = 4;
 
@@ -31,6 +35,9 @@ public:
     void Serialize(FArchive& Ar);
 
     const FString& GetAssetPathFileName() const;
+    bool LoadFromCooked(const FString& AssetPath, const std::shared_ptr<Asset::FObjCookedData>& CookedMesh, ID3D11Device* InDevice);
+    void ReleaseGPUResources();
+    void ResetAsset() override;
     void SetStaticMeshAsset(FStaticMesh* InMesh);
     FStaticMesh* GetStaticMeshAsset() const;
     void SetStaticMaterials(TArray<FStaticMaterial>&& InMaterials);

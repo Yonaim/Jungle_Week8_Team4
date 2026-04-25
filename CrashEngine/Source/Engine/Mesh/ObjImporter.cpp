@@ -4,7 +4,6 @@
 #include "Materials/Material.h"
 #include "Editor/UI/EditorConsolePanel.h"
 #include "Engine/Platform/Paths.h"
-#include "Mesh/ObjManager.h"
 #include "SimpleJSON/json.hpp"
 #include "Materials/MaterialManager.h"
 #include <algorithm>

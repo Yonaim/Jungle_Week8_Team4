@@ -21,11 +21,7 @@ struct FStaticMeshSection
     uint32 FirstIndex;
     uint32 NumTriangles;
 
-    friend FArchive& operator<<(FArchive& Ar, FStaticMeshSection& Section)
-    {
-        Ar << Section.MaterialSlotName << Section.FirstIndex << Section.NumTriangles;
-        return Ar;
-    }
+    friend FArchive& operator<<(FArchive& Ar, FStaticMeshSection& Section);
 };
 
 // FStaticMaterial는 머티리얼 파라미터와 렌더 리소스를 다룹니다.
@@ -35,34 +31,7 @@ struct FStaticMaterial
     UMaterial* MaterialInterface;
     FString MaterialSlotName = "None"; // "None"은 특별한 슬롯 이름으로, OBJ 파일에서 머티리얼이 지정되지 않은 섹션에 할당됩니다.
 
-    friend FArchive& operator<<(FArchive& Ar, FStaticMaterial& Mat)
-    {
-        // 1. 슬롯 이름 직렬화 (메시 섹션과 매핑용)
-        Ar << Mat.MaterialSlotName;
-
-        // 2. Material JSON 경로 직렬화 (Source of Truth = Asset/**/Materials/*.json)
-        FString JsonPath;
-        if (Ar.IsSaving() && Mat.MaterialInterface)
-        {
-            JsonPath = Mat.MaterialInterface->GetAssetPathFileName();
-        }
-        Ar << JsonPath;
-
-        // 3. 로딩 시 FMaterialManager를 통해 머티리얼 복원
-        if (Ar.IsLoading())
-        {
-            if (!JsonPath.empty())
-            {
-                Mat.MaterialInterface = FMaterialManager::Get().GetOrCreateStaticMeshMaterial(JsonPath);
-            }
-            else
-            {
-                Mat.MaterialInterface = nullptr;
-            }
-        }
-
-        return Ar;
-    }
+    friend FArchive& operator<<(FArchive& Ar, FStaticMaterial& Mat);
 };
 
 // Cooked Data — GPU용 정점/인덱스
@@ -105,11 +74,5 @@ struct FStaticMesh
         bBoundsValid = true;
     }
 
-    void Serialize(FArchive& Ar)
-    {
-        Ar << PathFileName;
-        Ar << Vertices;
-        Ar << Indices;
-        Ar << Sections;
-    }
+    void Serialize(FArchive& Ar);
 };

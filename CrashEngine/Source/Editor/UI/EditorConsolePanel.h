@@ -50,5 +50,7 @@ private:
     static int32 TextEditCallback(ImGuiInputTextCallbackData* Data);
 };
 
+#ifndef UE_LOG
 #define UE_LOG(Format, ...) \
     FEditorConsolePanel::AddLog(Format, ##__VA_ARGS__)
+#endif

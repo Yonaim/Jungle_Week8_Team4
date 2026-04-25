@@ -1,13 +1,37 @@
 ﻿// 머티리얼 영역의 세부 동작을 구현합니다.
 #include "Materials/Material.h"
+#include "Asset/AssetObjectManager.h"
 #include "Materials/MaterialSemantics.h"
+#include "Platform/Paths.h"
 #include "Serialization/Archive.h"
-#include "Texture/Texture2D.h"
 #include "Engine/Runtime/Engine.h"
 #include "Render/Renderer.h"
+#include "Texture/Texture2D.h"
 
+#include <algorithm>
+
+DEFINE_CLASS_WITH_FLAGS(UMaterialInterface, UAsset, CF_Abstract)
 
 IMPLEMENT_CLASS(UMaterial, UMaterialInterface)
+
+namespace
+{
+FMaterialTemplate* GetCookedMaterialTemplate()
+{
+    static FMaterialTemplate* GTemplate = []()
+    {
+        FMaterialTemplate* Template = new FMaterialTemplate();
+        Template->CreateSurfaceMaterialLayout();
+        return Template;
+    }();
+    return GTemplate;
+}
+
+FString GetAssetStem(const FString& AssetPath)
+{
+    return FPaths::ToUtf8(std::filesystem::path(FPaths::ToWide(AssetPath)).stem().wstring());
+}
+}
 
 // ========== UMaterial ==========
 
@@ -33,10 +57,85 @@ UMaterial::~UMaterial()
 void UMaterial::Create(const FString& InPathFileName, FMaterialTemplate* InTemplate,
                        TMap<FString, std::unique_ptr<FMaterialConstantBuffer>>&& InBuffers)
 {
-    PathFileName = InPathFileName;
+    SetAssetPathFileName(InPathFileName);
+    SetAssetName(GetAssetStem(InPathFileName));
     Template = InTemplate;
-
     ConstantBufferMap = std::move(InBuffers);
+    SetLoaded(true);
+}
+
+bool UMaterial::LoadFromCooked(const FString& AssetPath, const Asset::FMtlCookedData& CookedData, ID3D11Device* Device, FAssetObjectManager& AssetObjectManager)
+{
+    ResetAsset();
+
+    FMaterialTemplate* SurfaceTemplate = GetCookedMaterialTemplate();
+
+    TMap<FString, std::unique_ptr<FMaterialConstantBuffer>> Buffers;
+    const auto& RequiredBuffers = SurfaceTemplate->GetParameterInfo();
+    std::vector<FString> CreatedBuffers;
+    for (const auto& BufferInfo : RequiredBuffers)
+    {
+        const FMaterialParameterInfo* ParamInfo = BufferInfo.second;
+        if (std::find(CreatedBuffers.begin(), CreatedBuffers.end(), ParamInfo->BufferName) != CreatedBuffers.end())
+        {
+            continue;
+        }
+
+        auto MatCB = std::make_unique<FMaterialConstantBuffer>();
+        MatCB->Init(Device, ParamInfo->BufferSize, ParamInfo->SlotIndex);
+        Buffers.emplace(ParamInfo->BufferName, std::move(MatCB));
+        CreatedBuffers.push_back(ParamInfo->BufferName);
+    }
+
+    Create(AssetPath, SurfaceTemplate, std::move(Buffers));
+    SetVector4Parameter(
+        MaterialSemantics::SectionColorParameter,
+        FVector4(CookedData.DiffuseColor, CookedData.Opacity));
+    SetScalarParameter(MaterialSemantics::SpecularPowerParameter, CookedData.Shininess);
+
+    const float SpecularStrength =
+        (std::max)({ CookedData.SpecularColor.X, CookedData.SpecularColor.Y, CookedData.SpecularColor.Z });
+    SetScalarParameter(MaterialSemantics::SpecularStrengthParameter, SpecularStrength);
+
+    for (const Asset::FMtlTextureBinding& Binding : CookedData.TextureBindings)
+    {
+        FString SlotName = MaterialSemantics::DiffuseTextureSlot;
+        switch (Binding.Slot)
+        {
+        case Asset::EMaterialTextureSlot::Normal:
+            SlotName = MaterialSemantics::NormalTextureSlot;
+            break;
+        case Asset::EMaterialTextureSlot::Specular:
+            SlotName = MaterialSemantics::SpecularTextureSlot;
+            break;
+        default:
+            break;
+        }
+
+        UTexture2D* Texture = AssetObjectManager.LoadTextureObject(FPaths::FromPath(Binding.TexturePath));
+        if (Texture)
+        {
+            SetTextureParameter(SlotName, Texture);
+        }
+    }
+
+    return true;
+}
+
+void UMaterial::ResetAsset()
+{
+    for (auto& Pair : ConstantBufferMap)
+    {
+        Pair.second->Release();
+    }
+    ConstantBufferMap.clear();
+    TextureParameters.clear();
+    LooseScalarParameters.clear();
+    LooseVector3Parameters.clear();
+    LooseVector4Parameters.clear();
+    LooseMatrixParameters.clear();
+    Template = nullptr;
+    UAsset::ResetAsset();
 }
 
 bool UMaterial::SetParameter(const FString& Name, const void* Data, uint32 Size)
@@ -247,7 +346,7 @@ const FString& UMaterial::GetTexturePathFileName(const FString& TextureName) con
         UTexture2D* Texture = it->second;
         if (Texture)
         {
-            return Texture->GetSourcePath();
+            return Texture->GetAssetPathFileName();
         }
     }
     static const FString EmptyString;
@@ -256,7 +355,12 @@ const FString& UMaterial::GetTexturePathFileName(const FString& TextureName) con
 
 void UMaterial::Serialize(FArchive& Ar)
 {
-    Ar << PathFileName;
+    FString AssetPath = GetAssetPathFileName();
+    Ar << AssetPath;
+    if (Ar.IsLoading())
+    {
+        SetAssetPathFileName(AssetPath);
+    }
 
     uint32 BufferCount = static_cast<uint32>(ConstantBufferMap.size());
     Ar << BufferCount;
@@ -307,7 +411,7 @@ void UMaterial::Serialize(FArchive& Ar)
         for (auto& Pair : TextureParameters)
         {
             FString SlotName = Pair.first;
-            FString TexturePath = Pair.second ? Pair.second->GetSourcePath() : FString();
+            FString TexturePath = Pair.second ? Pair.second->GetAssetPathFileName() : FString();
 
             Ar << SlotName;
             Ar << TexturePath;
@@ -326,7 +430,7 @@ void UMaterial::Serialize(FArchive& Ar)
             if (!TexturePath.empty())
             {
                 ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-                TextureParameters[SlotName] = UTexture2D::LoadFromFile(TexturePath, Device);
+                TextureParameters[SlotName] = FAssetObjectManager::Get().LoadTextureObject(TexturePath);
             }
         }
     }

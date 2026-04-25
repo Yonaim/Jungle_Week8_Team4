@@ -1,4 +1,5 @@
 ﻿// 게임 프레임워크 영역의 세부 동작을 구현합니다.
+#include "Asset/AssetObjectManager.h"
 #include "GameFramework/StaticMeshActor.h"
 #include "Object/ObjectFactory.h"
 #include "Engine/Runtime/Engine.h"
@@ -13,8 +14,7 @@ void AStaticMeshActor::InitDefaultComponents(const FString& UStaticMeshFileName)
     StaticMeshComponent = AddComponent<UStaticMeshComponent>();
     SetRootComponent(StaticMeshComponent);
 
-    ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-    UStaticMesh* Asset = FObjManager::LoadObjStaticMesh(UStaticMeshFileName, Device);
+    UStaticMesh* Asset = FAssetObjectManager::Get().LoadStaticMeshObject(UStaticMeshFileName);
 
     StaticMeshComponent->SetStaticMesh(Asset);
 

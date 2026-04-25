@@ -1,11 +1,11 @@
 ﻿// 게임 프레임워크 영역의 세부 동작을 구현합니다.
+#include "Asset/AssetObjectManager.h"
 #include "FakeLightActor.h"
 #include "AActor.h"
 #include "Component/CylindricalBillboardComponent.h"
 #include "Component/DecalComponent.h"
 #include "Component/StaticMeshComponent.h"
 #include "Materials/MaterialManager.h"
-#include "Mesh/ObjManager.h"
 #include "Mesh/StaticMesh.h"
 #include "Runtime/Engine.h"
 
@@ -20,8 +20,7 @@ AFakeLightActor::AFakeLightActor()
 void AFakeLightActor::InitDefaultComponents()
 {
     // lamp mesh
-    ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-    UStaticMesh* MeshData = FObjManager::LoadObjStaticMesh(LampMeshDir, Device);
+    UStaticMesh* MeshData = FAssetObjectManager::Get().LoadStaticMeshObject(LampMeshDir);
     StaticMeshComponent = AddComponent<UStaticMeshComponent>();
     StaticMeshComponent->SetStaticMesh(MeshData);
     SetRootComponent(StaticMeshComponent);

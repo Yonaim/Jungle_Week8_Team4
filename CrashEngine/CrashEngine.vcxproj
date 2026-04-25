@@ -241,6 +241,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\Engine\Asset\Asset.cpp" />
+    <ClCompile Include="Source\Engine\Asset\AssetObjectManager.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Builder\MaterialBuilder.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Builder\StaticMeshBuilder.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Builder\TextureBuilder.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Core\AssetNaming.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Manager\AssetCacheManager.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Serialization\CookedDataBinaryIO.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Serialization\CookedDataSerialization.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Serialization\WindowsBinArchive.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Source\SourceHash.cpp" />
+    <ClCompile Include="Source\Engine\Asset\Source\SourceLoader.cpp" />
     <ClCompile Include="Source\Editor\EditorEngine.cpp" />
     <ClCompile Include="Source\Editor\Selection\SelectionManager.cpp" />
     <ClCompile Include="Source\Editor\Settings\EditorSettings.cpp" />
@@ -312,8 +324,6 @@
     <ClCompile Include="Source\Engine\Math\Transform.cpp" />
     <ClCompile Include="Source\Engine\Math\Vector.cpp" />
     <ClCompile Include="Source\Engine\Mesh\MeshSimplifier.cpp" />
-    <ClCompile Include="Source\Engine\Mesh\ObjImporter.cpp" />
-    <ClCompile Include="Source\Engine\Mesh\ObjManager.cpp" />
     <ClCompile Include="Source\Engine\Mesh\StaticMesh.cpp" />
     <ClCompile Include="Source\Engine\Object\FName.cpp" />
     <ClCompile Include="Source\Engine\Object\Object.cpp" />
@@ -427,6 +437,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\Engine\Asset\Asset.h" />
+    <ClInclude Include="Source\Engine\Asset\AssetObjectManager.h" />
     <ClInclude Include="Source\Editor\EditorEngine.h" />
     <ClInclude Include="Source\Editor\PIE\PIETypes.h" />
     <ClInclude Include="Source\Editor\Selection\SelectionManager.h" />
@@ -516,7 +528,6 @@
     <ClInclude Include="Source\Engine\Math\Vector.h" />
     <ClInclude Include="Source\Engine\Mesh\MeshSimplifier.h" />
     <ClInclude Include="Source\Engine\Mesh\ObjImporter.h" />
-    <ClInclude Include="Source\Engine\Mesh\ObjManager.h" />
     <ClInclude Include="Source\Engine\Mesh\StaticMesh.h" />
     <ClInclude Include="Source\Engine\Mesh\StaticMeshAsset.h" />
     <ClInclude Include="Source\Engine\Object\FName.h" />

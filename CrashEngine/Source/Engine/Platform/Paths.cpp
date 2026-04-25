@@ -133,6 +133,29 @@ std::string FPaths::FromWide(const std::wstring& WideStr)
     return ToUtf8(WideStr);
 }
 
+std::filesystem::path FPaths::Normalize(const std::filesystem::path& Path)
+{
+    if (Path.empty())
+    {
+        return {};
+    }
+
+    std::filesystem::path Normalized = Path;
+    if (Normalized.is_relative())
+    {
+        Normalized = std::filesystem::path(RootDir()) / Normalized;
+    }
+
+    std::error_code Ec;
+    std::filesystem::path Canonical = std::filesystem::weakly_canonical(Normalized, Ec);
+    if (!Ec)
+    {
+        return Canonical;
+    }
+
+    return Normalized.lexically_normal();
+}
+
 std::string FPaths::ResolveAssetPath(const std::string& BaseFilePath, const std::string& TargetPath)
 {
     const std::filesystem::path FileDir = ToPath(BaseFilePath).parent_path();

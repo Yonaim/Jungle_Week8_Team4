@@ -1,6 +1,8 @@
 ﻿// 머티리얼 영역에서 공유되는 타입과 인터페이스를 정의합니다.
 #pragma once
 
+#include "Asset/Asset.h"
+#include "Asset/Cooked/MtlCookedData.h"
 #include "Object/ObjectFactory.h"
 #include "Render/RHI/D3D11/Common/D3D11API.h"
 #include "MaterialCore.h"
@@ -9,11 +11,14 @@
 
 class UTexture2D;
 class FArchive;
+class FAssetObjectManager;
 
 // UMaterialInterface는 머티리얼 파라미터와 렌더 리소스를 다룹니다.
-class UMaterialInterface : public UObject
+class UMaterialInterface : public UAsset
 {
 public:
+    DECLARE_CLASS(UMaterialInterface, UAsset)
+
     virtual bool SetScalarParameter(const FString& Name, float Value) = 0;
     virtual bool SetVector3Parameter(const FString& ParamName, const FVector& Value) = 0;
     virtual bool SetVector4Parameter(const FString& Name, const FVector4& Value) = 0;
@@ -31,7 +36,6 @@ public:
 class UMaterial : public UMaterialInterface
 {
 private:
-    FString PathFileName;
     uint32 MaterialInstanceID = 0;
     FMaterialTemplate* Template = nullptr;
 
@@ -52,6 +56,8 @@ public:
         const FString& InPathFileName,
         FMaterialTemplate* InTemplate,
         TMap<FString, std::unique_ptr<FMaterialConstantBuffer>>&& InBuffers);
+    bool LoadFromCooked(const FString& AssetPath, const Asset::FMtlCookedData& CookedData, ID3D11Device* Device, FAssetObjectManager& AssetObjectManager);
+    void ResetAsset() override;
 
     const uint8* GetRawPtr(const FString& BufferName, uint32 Offset) const;
     bool SetScalarParameter(const FString& ParamName, float Value) override;
@@ -70,8 +76,6 @@ public:
     UTexture2D* GetSpecularTexture() const;
 
     const FString& GetTexturePathFileName(const FString& TextureName) const;
-    const FString& GetAssetPathFileName() const { return PathFileName; }
-    void SetAssetPathFileName(const FString& InPath) { PathFileName = InPath; }
     void Serialize(FArchive& Ar);
 
     FConstantBuffer* GetGPUBufferBySlot(uint32 InSlot) const

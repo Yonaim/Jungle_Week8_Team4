@@ -1,4 +1,5 @@
 ﻿// 게임 프레임워크 영역의 세부 동작을 구현합니다.
+#include "Asset/AssetObjectManager.h"
 #include "FireballActor.h"
 
 #include "Component/DecalComponent.h"
@@ -17,8 +18,7 @@ AFireballActor::AFireballActor()
 void AFireballActor::InitDefaultComponents()
 {
     StaticMeshComponent = AddComponent<UStaticMeshComponent>();
-    ID3D11Device* Device = GEngine->GetRenderer().GetFD3DDevice().GetDevice();
-    UStaticMesh* Asset = FObjManager::LoadObjStaticMesh(FireballMeshName, Device);
+    UStaticMesh* Asset = FAssetObjectManager::Get().LoadStaticMeshObject(FireballMeshName);
     StaticMeshComponent->SetStaticMesh(Asset);
     SetRootComponent(StaticMeshComponent);
 

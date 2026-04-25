@@ -1,13 +1,13 @@
 ﻿// 에디터 영역의 세부 동작을 구현합니다.
 #include "Editor/EditorEngine.h"
 
+#include "Asset/AssetObjectManager.h"
 #include "Engine/Runtime/WindowsWindow.h"
 #include "Engine/Serialization/SceneSaveManager.h"
 #include "Component/CameraComponent.h"
 #include "GameFramework/World.h"
 #include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "Object/ObjectFactory.h"
-#include "Mesh/ObjManager.h"
 #include "Input/InputSystem.h"
 #include "GameFramework/AActor.h"
 #include "Materials/MaterialManager.h"
@@ -30,8 +30,8 @@ void PreloadDefaultObjAssets(ID3D11Device* Device)
         return;
     }
 
-    FObjManager::ScanObjSourceFiles();
-    const TArray<FMeshAssetListItem>& ObjFiles = FObjManager::GetAvailableObjFiles();
+    FAssetObjectManager::Get().ScanStaticMeshSourceFiles();
+    const TArray<FMeshAssetListItem>& ObjFiles = FAssetObjectManager::Get().GetAvailableStaticMeshSourceFiles();
     for (const FMeshAssetListItem& Item : ObjFiles)
     {
         if (Item.FullPath.rfind(FPaths::ContentRelativePath("Models/_Basic/"), 0) != 0)
@@ -39,7 +39,7 @@ void PreloadDefaultObjAssets(ID3D11Device* Device)
             continue;
         }
 
-        FObjManager::LoadObjStaticMesh(Item.FullPath, Device);
+        FAssetObjectManager::Get().LoadStaticMeshObject(Item.FullPath);
     }
 }
 } // namespace
@@ -48,8 +48,8 @@ void UEditorEngine::Init(FWindowsWindow* InWindow)
 {
     UEngine::Init(InWindow);
 
-    FObjManager::ScanMeshAssets();
-    FObjManager::ScanObjSourceFiles();
+    FAssetObjectManager::Get().ScanStaticMeshAssets();
+    FAssetObjectManager::Get().ScanStaticMeshSourceFiles();
     FMaterialManager::Get().ScanMaterialAssets();
     PreloadDefaultObjAssets(Renderer.GetFD3DDevice().GetDevice());
 

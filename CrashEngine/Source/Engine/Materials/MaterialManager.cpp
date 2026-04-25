@@ -5,6 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_set>
+#include "Asset/AssetObjectManager.h"
+#include "Asset/Builder/MaterialBuilder.h"
+#include "Asset/Core/AssetNaming.h"
+#include "Asset/Cooked/MtlCookedData.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialSemantics.h"
 #include "Platform/Paths.h"
@@ -185,6 +189,11 @@ UMaterial* FMaterialManager::GetOrCreateMaterial(const FString& MatFilePath)
 {
     const FString CacheKey = NormalizeCacheKey(MatFilePath);
 
+    if (IsImportedMaterialAssetPath(CacheKey))
+    {
+        return GetOrCreateImportedMaterial(CacheKey);
+    }
+
     auto It = MaterialCache.find(CacheKey);
     if (It != MaterialCache.end())
     {
@@ -333,7 +342,7 @@ void FMaterialManager::ApplyTextures(UMaterial* Material, json::JSON& JsonData, 
         const FString TexturePath = Pair.second.ToString().c_str();
         const std::filesystem::path ResolvedTexturePath = ResolveTexturePath(TexturePath, MatFilePath);
 
-        UTexture2D* Texture = UTexture2D::LoadFromFile(FPaths::FromPath(ResolvedTexturePath), Device);
+        UTexture2D* Texture = FAssetObjectManager::Get().LoadTextureObject(FPaths::FromPath(ResolvedTexturePath));
         if (Texture)
         {
             Material->SetTextureParameter(SlotName, Texture);
@@ -361,7 +370,11 @@ FMaterialTemplate* FMaterialManager::GetOrCreateTemplate()
 
 std::filesystem::path FMaterialManager::ResolveFullPath(const FString& FilePath) const
 {
-    std::filesystem::path Path = FPaths::ToPath(FPaths::ToWide(FilePath));
+    FString MaterialLibraryPath = FilePath;
+    FString MaterialName;
+    Asset::FMaterialBuilder::SplitMaterialAssetPath(FilePath, MaterialLibraryPath, MaterialName);
+
+    std::filesystem::path Path = FPaths::ToPath(FPaths::ToWide(MaterialLibraryPath));
     if (!Path.is_absolute())
     {
         Path = FPaths::ToPath(FPaths::RootDir()) / Path;
@@ -379,6 +392,15 @@ std::filesystem::path FMaterialManager::ResolveFullPath(const FString& FilePath)
 
 FString FMaterialManager::NormalizeCacheKey(const FString& FilePath) const
 {
+    FString MaterialLibraryPath = FilePath;
+    FString MaterialName;
+    if (Asset::FMaterialBuilder::SplitMaterialAssetPath(FilePath, MaterialLibraryPath, MaterialName))
+    {
+        const FString NormalizedLibraryPath = FPaths::FromPath(ResolveFullPath(MaterialLibraryPath));
+        return Asset::FMaterialBuilder::MakeMaterialAssetPath(
+            FPaths::ToPath(NormalizedLibraryPath), MaterialName);
+    }
+
     return FPaths::FromPath(ResolveFullPath(FilePath));
 }
 
@@ -488,6 +510,97 @@ void FMaterialManager::RetireMaterialCacheEntry(FMaterialCacheEntry& Entry)
     {
         RetiredMaterials.push_back(Entry.Material);
         Entry.Material = nullptr;
+    }
+}
+
+bool FMaterialManager::IsImportedMaterialAssetPath(const FString& FilePath) const
+{
+    FString MaterialLibraryPath = FilePath;
+    FString MaterialName;
+    if (!Asset::FMaterialBuilder::SplitMaterialAssetPath(FilePath, MaterialLibraryPath, MaterialName))
+    {
+        return Asset::HasSourceExtension(Asset::EAssetFileKind::MaterialLibrary, FilePath);
+    }
+
+    return Asset::HasSourceExtension(Asset::EAssetFileKind::MaterialLibrary, MaterialLibraryPath);
+}
+
+UMaterial* FMaterialManager::GetOrCreateImportedMaterial(const FString& MaterialAssetPath)
+{
+    auto It = MaterialCache.find(MaterialAssetPath);
+    if (It != MaterialCache.end())
+    {
+        FMaterialCacheEntry& Cached = It->second;
+        if (!HasDependencyChanged(Cached.MaterialFile) &&
+            !HasAnyDependencyChanged(Cached.TextureFiles))
+        {
+            return Cached.Material;
+        }
+
+        RetireMaterialCacheEntry(Cached);
+        MaterialCache.erase(It);
+    }
+
+    UMaterial* Material = FAssetObjectManager::Get().LoadMaterialObject(MaterialAssetPath);
+    if (!Material)
+    {
+        return nullptr;
+    }
+
+    FString MaterialLibraryPath = MaterialAssetPath;
+    FString MaterialName;
+    Asset::FMaterialBuilder::SplitMaterialAssetPath(
+        MaterialAssetPath, MaterialLibraryPath, MaterialName);
+
+    FMaterialCacheEntry NewEntry;
+    NewEntry.Material = Material;
+    NewEntry.MaterialFile = BuildFileDependency(ResolveFullPath(MaterialLibraryPath));
+    std::shared_ptr<Asset::FMtlCookedData> CookedMaterial =
+        FAssetObjectManager::Get().GetAssetCacheManager().BuildMaterial(MaterialAssetPath);
+    if (!CookedMaterial)
+    {
+        return Material;
+    }
+
+    for (const Asset::FMtlTextureBinding& Binding : CookedMaterial->TextureBindings)
+    {
+        NewEntry.TextureFiles.push_back(BuildFileDependency(Binding.TexturePath));
+    }
+    MaterialCache.emplace(MaterialAssetPath, std::move(NewEntry));
+    return Material;
+}
+
+void FMaterialManager::ApplyCookedMaterial(UMaterial* Material, const Asset::FMtlCookedData& CookedData)
+{
+    Material->SetVector4Parameter(
+        MaterialSemantics::SectionColorParameter,
+        FVector4(CookedData.DiffuseColor, CookedData.Opacity));
+    Material->SetScalarParameter(MaterialSemantics::SpecularPowerParameter, CookedData.Shininess);
+
+    const float SpecularStrength =
+        (std::max)({CookedData.SpecularColor.X, CookedData.SpecularColor.Y, CookedData.SpecularColor.Z});
+    Material->SetScalarParameter(MaterialSemantics::SpecularStrengthParameter, SpecularStrength);
+
+    for (const Asset::FMtlTextureBinding& Binding : CookedData.TextureBindings)
+    {
+        FString SlotName = MaterialSemantics::DiffuseTextureSlot;
+        switch (Binding.Slot)
+        {
+        case Asset::EMaterialTextureSlot::Normal:
+            SlotName = MaterialSemantics::NormalTextureSlot;
+            break;
+        case Asset::EMaterialTextureSlot::Specular:
+            SlotName = MaterialSemantics::SpecularTextureSlot;
+            break;
+        default:
+            break;
+        }
+
+        UTexture2D* Texture = FAssetObjectManager::Get().LoadTextureObject(FPaths::FromPath(Binding.TexturePath));
+        if (Texture)
+        {
+            Material->SetTextureParameter(SlotName, Texture);
+        }
     }
 }
 
