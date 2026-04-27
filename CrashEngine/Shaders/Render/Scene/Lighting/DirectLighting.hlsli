@@ -1,4 +1,4 @@
-/*
+﻿/*
     DirectLighting.hlsli: scene direct lighting helpers.
 */
 
@@ -19,11 +19,17 @@ StructuredBuffer<FLocalLight> g_LightBuffer : register(t6);
 StructuredBuffer<uint> PerTileLightMask : REGISTER_T(SLOT_TEX_LIGHT_TILE_MASK);
 Texture2D g_DebugHitMapTex : REGISTER_T(SLOT_TEX_DEBUG_HIT_MAP);
 
-TextureCube g_ShadowMap0 : register(t20);
-TextureCube g_ShadowMap1 : register(t21);
-TextureCube g_ShadowMap2 : register(t22);
-TextureCube g_ShadowMap3 : register(t23);
-TextureCube g_ShadowMap4 : register(t24);
+Texture2D g_ShadowMap2D0 : register(t20);
+Texture2D g_ShadowMap2D1 : register(t21);
+Texture2D g_ShadowMap2D2 : register(t22);
+Texture2D g_ShadowMap2D3 : register(t23);
+Texture2D g_ShadowMap2D4 : register(t24);
+
+TextureCube g_ShadowMapCube0 : register(t25);
+TextureCube g_ShadowMapCube1 : register(t26);
+TextureCube g_ShadowMapCube2 : register(t27);
+TextureCube g_ShadowMapCube3 : register(t28);
+TextureCube g_ShadowMapCube4 : register(t29);
 
 cbuffer LightCullingParams : register(b2)
 {
@@ -36,25 +42,25 @@ cbuffer LightCullingParams : register(b2)
     float NumLights;
 }
 
-static const float kShadowBias = 0.002f; // 일단 하드코딩된 bias로 따라갔음
-static const float2 kShadowTexelSize = float2(1.0f / 2048.0f, 1.0f / 2048.0f); // 가변적으로 바뀌어야됨
+static const float kShadowBias = 0.002f;
+static const float2 kShadowTexelSize = float2(1.0f / 2048.0f, 1.0f / 2048.0f);
 
 float3 GetAmbientLightColor()
 {
     return Ambient.Color * Ambient.Intensity;
 }
 
-float SampleSpotShadowCmp(int ShadowIndex, float3 SampleDir, float CompareDepth)
+float SampleSpotShadowCmp(int ShadowIndex, float2 ShadowUV, float CompareDepth)
 {
     float ShadowFactor = 1.0f;
     [branch]
     switch (ShadowIndex)
     {
-    case 0: ShadowFactor = g_ShadowMap0.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
-    case 1: ShadowFactor = g_ShadowMap1.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
-    case 2: ShadowFactor = g_ShadowMap2.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
-    case 3: ShadowFactor = g_ShadowMap3.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
-    case 4: ShadowFactor = g_ShadowMap4.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    case 0: ShadowFactor = g_ShadowMap2D0.SampleCmpLevelZero(ShadowSampler, ShadowUV, CompareDepth); break;
+    case 1: ShadowFactor = g_ShadowMap2D1.SampleCmpLevelZero(ShadowSampler, ShadowUV, CompareDepth); break;
+    case 2: ShadowFactor = g_ShadowMap2D2.SampleCmpLevelZero(ShadowSampler, ShadowUV, CompareDepth); break;
+    case 3: ShadowFactor = g_ShadowMap2D3.SampleCmpLevelZero(ShadowSampler, ShadowUV, CompareDepth); break;
+    case 4: ShadowFactor = g_ShadowMap2D4.SampleCmpLevelZero(ShadowSampler, ShadowUV, CompareDepth); break;
     }
 
     return ShadowFactor;
@@ -62,17 +68,19 @@ float SampleSpotShadowCmp(int ShadowIndex, float3 SampleDir, float CompareDepth)
 
 float OffsetLookupSpotPCF(int ShadowIndex, float2 BaseNDC, float CompareDepth, float2 Offset)
 {
-    float2 OffsetNDC;
-    OffsetNDC.x = BaseNDC.x + Offset.x * kShadowTexelSize.x * 2.0f;
-    OffsetNDC.y = BaseNDC.y - Offset.y * kShadowTexelSize.y * 2.0f;
+    float2 BaseUV = BaseNDC * 0.5f + 0.5f;
+    BaseUV.y = 1.0f - BaseUV.y;
 
-    if (abs(OffsetNDC.x) > 1.0f || abs(OffsetNDC.y) > 1.0f)
+    float2 OffsetUV = BaseUV;
+    OffsetUV.x += Offset.x * kShadowTexelSize.x;
+    OffsetUV.y += Offset.y * kShadowTexelSize.y;
+
+    if (OffsetUV.x < 0.0f || OffsetUV.x > 1.0f || OffsetUV.y < 0.0f || OffsetUV.y > 1.0f)
     {
         return 1.0f;
     }
-    float3 SampleDir = float3(1.0f, OffsetNDC.y, -OffsetNDC.x);
 
-    return SampleSpotShadowCmp(ShadowIndex, SampleDir, CompareDepth);
+    return SampleSpotShadowCmp(ShadowIndex, OffsetUV, CompareDepth);
 }
 
 float PCF_NvidiaOptimizedSpot(int ShadowIndex, float2 BaseNDC, float CompareDepth, float4 PixelPos)
@@ -94,18 +102,33 @@ float PCF_NvidiaOptimizedSpot(int ShadowIndex, float2 BaseNDC, float CompareDept
     return ShadowCoeff * 0.25f;
 }
 
+float SamplePointShadowCmp(int ShadowIndex, float3 SampleDir, float CompareDepth)
+{
+    float ShadowFactor = 1.0f;
+    [branch]
+    switch (ShadowIndex)
+    {
+    case 0: ShadowFactor = g_ShadowMapCube0.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    case 1: ShadowFactor = g_ShadowMapCube1.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    case 2: ShadowFactor = g_ShadowMapCube2.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    case 3: ShadowFactor = g_ShadowMapCube3.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    case 4: ShadowFactor = g_ShadowMapCube4.SampleCmpLevelZero(ShadowSampler, SampleDir, CompareDepth); break;
+    }
+
+    return ShadowFactor;
+}
+
 float OffsetLookupPointPCF(int ShadowIndex, float3 SampleDir, float3 Tangent, float3 Bitangent, float CompareDepth, float2 Offset)
 {
     float2 OffsetUV = Offset * kShadowTexelSize * 2.0f;
+    float3 OffsetDir = normalize(SampleDir + Tangent * OffsetUV.x + Bitangent * OffsetUV.y);
 
-    float3 OffsetDir = SampleDir + Tangent * OffsetUV.x + Bitangent * OffsetUV.y;
-
-    return SampleSpotShadowCmp(ShadowIndex, OffsetDir, CompareDepth);
+    return SamplePointShadowCmp(ShadowIndex, OffsetDir, CompareDepth);
 }
 
 float PCF_NvidiaOptimizedPoint(int ShadowIndex, float3 SampleDir, float CompareDepth, float4 PixelPos)
 {
-    float2 Offset = (float2) (frac(PixelPos.xy * 0.5f) > 0.25f);
+    float2 Offset = (float2)(frac(PixelPos.xy * 0.5f) > 0.25f);
     Offset.y += Offset.x;
     if (Offset.y > 1.1f)
     {
@@ -122,7 +145,6 @@ float PCF_NvidiaOptimizedPoint(int ShadowIndex, float3 SampleDir, float CompareD
     ShadowCoeff += OffsetLookupPointPCF(ShadowIndex, SampleDir, Tangent, Bitangent, CompareDepth, Offset + float2(-1.5f, -1.5f));
     ShadowCoeff += OffsetLookupPointPCF(ShadowIndex, SampleDir, Tangent, Bitangent, CompareDepth, Offset + float2(0.5f, -1.5f));
 
-    // [버그 수정] 반환값 추가
     return ShadowCoeff * 0.25f;
 }
 
@@ -143,7 +165,7 @@ float GetShadowFactor(int ShadowIndex, float4x4 ShadowViewProj, float3 WorldPos,
 
     float2 BaseNDC = ShadowPos.xy;
     float CompareDepth = ShadowPos.z + kShadowBias;
-    
+
     return PCF_NvidiaOptimizedSpot(ShadowIndex, BaseNDC, CompareDepth, PixelPos);
 }
 
@@ -154,6 +176,7 @@ float GetPointShadowFactor(int ShadowIndex, float3 LightPos, float3 WorldPos, fl
 
     float3 L = WorldPos - LightPos;
     if (dot(L, L) <= 1e-6f) return 1.0f;
+
     float ZView = max(abs(L.x), max(abs(L.y), abs(L.z)));
     ZView = max(ZView, 1e-4f);
 
@@ -400,5 +423,3 @@ float4 ComputeBlinnPhongLightingGlobalOnly(float4 BaseColor, float3 Normal, floa
 }
 
 #endif
-
-
