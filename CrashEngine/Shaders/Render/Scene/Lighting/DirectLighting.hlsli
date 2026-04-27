@@ -87,7 +87,7 @@ float SampleSpotShadowCmp(int ShadowIndex, float3 ShadowPosNDC)
 
     float2 UVNorm = ShadowPosNDC.xy * 2.0f - 1.0f;
     float3 SampleDir = float3(1.0f, -UVNorm.y, -UVNorm.x);
-    float CompareDepth = ShadowPosNDC.z - kShadowBias;
+    float CompareDepth = ShadowPosNDC.z + kShadowBias;
 
     float ShadowFactor = 1.0f;
     [branch]
