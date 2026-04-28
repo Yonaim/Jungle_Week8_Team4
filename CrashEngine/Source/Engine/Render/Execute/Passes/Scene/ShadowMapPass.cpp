@@ -316,24 +316,42 @@ void FShadowMapPass::BuildDrawCommands(FRenderPipelineContext& Context)
         const uint32 LightType = Light->LightProxyInfo.LightType;
         if (LightType == static_cast<uint32>(ELightType::Directional))
         {
-            const uint32 CascadeCount = std::max(1u, Light->CascadeShadowMapData.CascadeCount);
+            const FCascadeShadowMapData* CascadeShadowMapData = Light->GetCascadeShadowMapData();
+            if (!CascadeShadowMapData)
+            {
+                continue;
+            }
+
+            const uint32 CascadeCount = std::max(1u, CascadeShadowMapData->CascadeCount);
             for (uint32 CascadeIndex = 0; CascadeIndex < CascadeCount; ++CascadeIndex)
             {
                 AppendRenderItem(
                     Light,
-                    &Light->CascadeShadowMapData.Cascades[CascadeIndex],
-                    Light->CascadeShadowMapData.CascadeViewProj[CascadeIndex]);
+                    &CascadeShadowMapData->Cascades[CascadeIndex],
+                    CascadeShadowMapData->CascadeViewProj[CascadeIndex]);
             }
         }
         else if (LightType == static_cast<uint32>(ELightType::Spot))
         {
-            AppendRenderItem(Light, &Light->SpotShadowMapData, Light->LightViewProj);
+            const FShadowMapData* SpotShadowMapData = Light->GetSpotShadowMapData();
+            if (!SpotShadowMapData)
+            {
+                continue;
+            }
+
+            AppendRenderItem(Light, SpotShadowMapData, Light->LightViewProj);
         }
         else if (LightType == static_cast<uint32>(ELightType::Point))
         {
+            const FCubeShadowMapData* CubeShadowMapData = Light->GetCubeShadowMapData();
+            if (!CubeShadowMapData)
+            {
+                continue;
+            }
+
             for (uint32 FaceIndex = 0; FaceIndex < ShadowAtlas::MaxPointFaces; ++FaceIndex)
             {
-                AppendRenderItem(Light, &Light->CubeShadowMapData.Faces[FaceIndex], Light->CubeShadowMapData.FaceViewProj[FaceIndex]);
+                AppendRenderItem(Light, &CubeShadowMapData->Faces[FaceIndex], CubeShadowMapData->FaceViewProj[FaceIndex]);
             }
         }
     }

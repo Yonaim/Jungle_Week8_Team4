@@ -54,7 +54,7 @@ bool FShadowAtlasAllocationMap::UpdateLightShadow(FLightProxy& Light, ID3D11Devi
     }
 
     const uint32 Resolution   = ClampShadowResolution(Light.ShadowResolution);
-    const uint32 CascadeCount = std::clamp(Light.CascadeCount, 1, static_cast<int32>(ShadowAtlas::MaxCascades));
+    const uint32 CascadeCount = std::clamp(Light.GetCascadeCountSetting(), 1, static_cast<int32>(ShadowAtlas::MaxCascades));
     const uint32 LightType    = Light.LightProxyInfo.LightType;
 
     FLightShadowRecord& Record = Records[&Light];
@@ -145,6 +145,12 @@ bool FShadowAtlasAllocationMap::AllocateSpot(FLightShadowRecord& Record, FLightP
 bool FShadowAtlasAllocationMap::AllocatePoint(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
 {
     Record.CubeShadowMapData.Reset();
+    const FMatrix* PointShadowViewProjMatrices = Light.GetPointShadowViewProjMatrices();
+    if (!PointShadowViewProjMatrices)
+    {
+        return false;
+    }
+
     for (uint32 FaceIndex = 0; FaceIndex < ShadowAtlas::MaxPointFaces; ++FaceIndex)
     {
         if (!AtlasPool.Allocate(Device, Record.Resolution, Record.CubeShadowMapData.Faces[FaceIndex]))
@@ -152,7 +158,7 @@ bool FShadowAtlasAllocationMap::AllocatePoint(FLightShadowRecord& Record, FLight
             FreeRecord(Record, AtlasPool);
             return false;
         }
-        Record.CubeShadowMapData.FaceViewProj[FaceIndex] = Light.ShadowViewProjMatrices[FaceIndex];
+        Record.CubeShadowMapData.FaceViewProj[FaceIndex] = PointShadowViewProjMatrices[FaceIndex];
     }
     return true;
 }

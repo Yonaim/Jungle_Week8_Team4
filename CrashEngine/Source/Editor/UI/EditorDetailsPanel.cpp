@@ -1013,15 +1013,21 @@ void FEditorDetailsPanel::RenderLightShadowSettings(ULightComponent* LightCompon
     const FShadowMapData* PreviewShadowData = nullptr;
     if (bIsCubeShadow)
     {
-        PreviewShadowData = &LightProxy->CubeShadowMapData.Faces[PreviewFace];
+        if (const FCubeShadowMapData* CubeShadowMapData = LightProxy->GetCubeShadowMapData())
+        {
+            PreviewShadowData = &CubeShadowMapData->Faces[PreviewFace];
+        }
     }
     else if (LightProxy->LightProxyInfo.LightType == static_cast<uint32>(ELightType::Directional))
     {
-        PreviewShadowData = &LightProxy->CascadeShadowMapData.Cascades[0];
+        if (const FCascadeShadowMapData* CascadeShadowMapData = LightProxy->GetCascadeShadowMapData())
+        {
+            PreviewShadowData = &CascadeShadowMapData->Cascades[0];
+        }
     }
     else
     {
-        PreviewShadowData = &LightProxy->SpotShadowMapData;
+        PreviewShadowData = LightProxy->GetSpotShadowMapData();
     }
 
     if (!PreviewShadowData || !PreviewShadowData->bAllocated)

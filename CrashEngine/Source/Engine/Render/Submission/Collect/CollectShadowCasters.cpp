@@ -5,7 +5,9 @@
 #include "Render/Execute/Context/Scene/SceneView.h"
 #include "Render/Execute/Passes/Scene/ShadowMapPass.h"
 #include "Render/Renderer.h"
+#include "Render/Scene/Proxies/Light/DirectionalLightSceneProxy.h"
 #include "Render/Scene/Proxies/Light/LightProxy.h"
+#include "Render/Scene/Proxies/Light/PointLightSceneProxy.h"
 
 #include <algorithm>
 
@@ -121,6 +123,12 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
             };
 
             const FVector LightPos = LC.Position;
+            FMatrix* PointShadowViewProjMatrices = Light->GetPointShadowViewProjMatrices();
+            if (!PointShadowViewProjMatrices)
+            {
+                continue;
+            }
+
             for (uint32 FaceIndex = 0; FaceIndex < ShadowAtlas::MaxPointFaces; ++FaceIndex)
             {
                 const FVector Forward = Faces[FaceIndex].Forward;
@@ -133,10 +141,10 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
                     Right.Z, Up.Z, Forward.Z, 0,
                     -LightPos.Dot(Right), -LightPos.Dot(Up), -LightPos.Dot(Forward), 1);
 
-                Light->ShadowViewProjMatrices[FaceIndex] = LightView * LightProjCube;
+                PointShadowViewProjMatrices[FaceIndex] = LightView * LightProjCube;
             }
 
-            Light->LightViewProj = Light->ShadowViewProjMatrices[0];
+            Light->LightViewProj = PointShadowViewProjMatrices[0];
             Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
             World->GetPartition().QuerySphereAllProxies({ LC.Position, LC.AttenuationRadius }, Light->VisibleShadowCasters);
         }
