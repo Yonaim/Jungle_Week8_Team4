@@ -1,4 +1,4 @@
-#include "ShadowMapPass.h"
+﻿#include "ShadowMapPass.h"
 
 #include "Component/LightComponent.h"
 #include "Editor/UI/EditorConsolePanel.h"
@@ -303,7 +303,7 @@ void FShadowMapPass::ReleaseDebugPreviewResources()
 
 void FShadowMapPass::BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlas& AtlasPage, uint32 SliceIndex)
 {
-    if (GetShadowFilterMethod() != EShadowFilterMethod::VSM || !Context.Device || !Context.Context)
+    if ((GetShadowFilterMethod() != EShadowFilterMethod::VSM && GetShadowFilterMethod() != EShadowFilterMethod::ESM) || !Context.Device || !Context.Context)
     {
         return;
     }
