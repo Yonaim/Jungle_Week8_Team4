@@ -4,12 +4,10 @@
 #include "Render/Resources/Buffers/ConstantBufferData.h"
 #include "Render/Resources/FrameResources.h"
 #include "Render/Resources/Shadows/ShadowFilterSettings.h"
-#include "Render/RHI/D3D11/Shaders/ShaderProgramBase.h"
 #include "Render/Scene/Proxies/Light/LightProxy.h"
 #include "Render/Submission/Command/BuildDrawCommand.h"
 
 #include <algorithm>
-#include <cstring>
 
 FShadowMapPass::~FShadowMapPass()
 {
@@ -25,7 +23,7 @@ void FShadowMapPass::ReleaseShadowAtlasResources()
 {
     ShadowAllocationMap.Release(AtlasPool);
     AtlasPool.Release();
-    ReleaseMomentBlurResources();
+    MomentFilter.Release();
     RenderItems.clear();
 }
 
@@ -74,205 +72,6 @@ void FShadowMapPass::GetShadowPageSliceAllocations(uint32 PageIndex, uint32 Slic
 uint32 FShadowMapPass::GetShadowAtlasPageCount() const
 {
     return AtlasPool.GetPageCount();
-}
-
-void FShadowMapPass::EnsureMomentBlurResources(ID3D11Device* Device)
-{
-    if (Device == nullptr)
-    {
-        return;
-    }
-
-    if (MomentBlurVS == nullptr || MomentBlurPSHorizontal == nullptr || MomentBlurPSVertical == nullptr)
-    {
-        FShaderStageDesc BlurVSDesc = {};
-        BlurVSDesc.FilePath         = "Shaders/Passes/Scene/Shared/ShadowMomentBlurPass.hlsl";
-        BlurVSDesc.EntryPoint       = "VS";
-
-        FShaderStageDesc BlurPSHorizontalDesc = {};
-        BlurPSHorizontalDesc.FilePath         = "Shaders/Passes/Scene/Shared/ShadowMomentBlurPass.hlsl";
-        BlurPSHorizontalDesc.EntryPoint       = "PS_Horizontal";
-
-        FShaderStageDesc BlurPSVerticalDesc = {};
-        BlurPSVerticalDesc.FilePath         = "Shaders/Passes/Scene/Shared/ShadowMomentBlurPass.hlsl";
-        BlurPSVerticalDesc.EntryPoint       = "PS_Vertical";
-
-        ID3DBlob* VsBlob = nullptr;
-        ID3DBlob* PsHorizontalBlob = nullptr;
-        ID3DBlob* PsVerticalBlob = nullptr;
-
-        const bool bCompiledVS = FShaderProgramBase::CompileShaderBlobStandalone(
-            &VsBlob, BlurVSDesc, "vs_5_0", "Shadow Moment Blur VS Compile Error");
-        const bool bCompiledH = FShaderProgramBase::CompileShaderBlobStandalone(
-            &PsHorizontalBlob, BlurPSHorizontalDesc, "ps_5_0", "Shadow Moment Blur Horizontal PS Compile Error");
-        const bool bCompiledV = FShaderProgramBase::CompileShaderBlobStandalone(
-            &PsVerticalBlob, BlurPSVerticalDesc, "ps_5_0", "Shadow Moment Blur Vertical PS Compile Error");
-        if (!bCompiledVS || !bCompiledH || !bCompiledV)
-        {
-            if (VsBlob) VsBlob->Release();
-            if (PsHorizontalBlob) PsHorizontalBlob->Release();
-            if (PsVerticalBlob) PsVerticalBlob->Release();
-            return;
-        }
-
-        const HRESULT HrVS = Device->CreateVertexShader(VsBlob->GetBufferPointer(), VsBlob->GetBufferSize(), nullptr, &MomentBlurVS);
-        const HRESULT HrH = Device->CreatePixelShader(PsHorizontalBlob->GetBufferPointer(), PsHorizontalBlob->GetBufferSize(), nullptr, &MomentBlurPSHorizontal);
-        const HRESULT HrV = Device->CreatePixelShader(PsVerticalBlob->GetBufferPointer(), PsVerticalBlob->GetBufferSize(), nullptr, &MomentBlurPSVertical);
-
-        VsBlob->Release();
-        PsHorizontalBlob->Release();
-        PsVerticalBlob->Release();
-
-        if (FAILED(HrVS) || FAILED(HrH) || FAILED(HrV))
-        {
-            ReleaseMomentBlurResources();
-            return;
-        }
-    }
-
-    if (MomentBlurCB == nullptr)
-    {
-        D3D11_BUFFER_DESC CbDesc = {};
-        CbDesc.ByteWidth = sizeof(FMomentBlurCBData);
-        CbDesc.Usage = D3D11_USAGE_DYNAMIC;
-        CbDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-        CbDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-        if (FAILED(Device->CreateBuffer(&CbDesc, nullptr, &MomentBlurCB)))
-        {
-            return;
-        }
-    }
-
-    if (MomentBlurTemp2D && MomentBlurTempSize == ShadowAtlas::AtlasSize)
-    {
-        return;
-    }
-
-    if (MomentBlurTempSRV)
-    {
-        MomentBlurTempSRV->Release();
-        MomentBlurTempSRV = nullptr;
-    }
-    if (MomentBlurTempRTV)
-    {
-        MomentBlurTempRTV->Release();
-        MomentBlurTempRTV = nullptr;
-    }
-    if (MomentBlurTemp2D)
-    {
-        MomentBlurTemp2D->Release();
-        MomentBlurTemp2D = nullptr;
-    }
-    MomentBlurTempSize = 0;
-
-    D3D11_TEXTURE2D_DESC TempDesc = {};
-    TempDesc.Width = ShadowAtlas::AtlasSize;
-    TempDesc.Height = ShadowAtlas::AtlasSize;
-    TempDesc.MipLevels = 1;
-    TempDesc.ArraySize = 1;
-    TempDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
-    TempDesc.SampleDesc.Count = 1;
-    TempDesc.Usage = D3D11_USAGE_DEFAULT;
-    TempDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-
-    if (FAILED(Device->CreateTexture2D(&TempDesc, nullptr, &MomentBlurTemp2D)) ||
-        FAILED(Device->CreateRenderTargetView(MomentBlurTemp2D, nullptr, &MomentBlurTempRTV)) ||
-        FAILED(Device->CreateShaderResourceView(MomentBlurTemp2D, nullptr, &MomentBlurTempSRV)))
-    {
-        ReleaseMomentBlurResources();
-        return;
-    }
-
-    MomentBlurTempSize = ShadowAtlas::AtlasSize;
-}
-
-void FShadowMapPass::ReleaseMomentBlurResources()
-{
-    if (MomentBlurTempSRV) { MomentBlurTempSRV->Release(); MomentBlurTempSRV = nullptr; }
-    if (MomentBlurTempRTV) { MomentBlurTempRTV->Release(); MomentBlurTempRTV = nullptr; }
-    if (MomentBlurTemp2D) { MomentBlurTemp2D->Release(); MomentBlurTemp2D = nullptr; }
-    if (MomentBlurCB) { MomentBlurCB->Release(); MomentBlurCB = nullptr; }
-    if (MomentBlurPSVertical) { MomentBlurPSVertical->Release(); MomentBlurPSVertical = nullptr; }
-    if (MomentBlurPSHorizontal) { MomentBlurPSHorizontal->Release(); MomentBlurPSHorizontal = nullptr; }
-    if (MomentBlurVS) { MomentBlurVS->Release(); MomentBlurVS = nullptr; }
-    MomentBlurTempSize = 0;
-}
-
-void FShadowMapPass::BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlasPage& AtlasPage, uint32 SliceIndex)
-{
-    if (GetShadowFilterMethod() != EShadowFilterMethod::VSM || !Context.Device || !Context.Context)
-    {
-        return;
-    }
-
-    EnsureMomentBlurResources(Context.Device->GetDevice());
-    if (!MomentBlurVS || !MomentBlurPSHorizontal || !MomentBlurPSVertical || !MomentBlurCB || !MomentBlurTempRTV || !MomentBlurTempSRV)
-    {
-        return;
-    }
-
-    ID3D11RenderTargetView* TargetRTV = AtlasPage.GetMomentSliceRTV(SliceIndex);
-    ID3D11ShaderResourceView* TargetSRV = AtlasPage.GetMomentSliceSRV(SliceIndex);
-    if (!TargetRTV || !TargetSRV)
-    {
-        return;
-    }
-
-    FMomentBlurCBData BlurCBData = {};
-    BlurCBData.TexelSizeX = 1.0f / static_cast<float>(ShadowAtlas::AtlasSize);
-    BlurCBData.TexelSizeY = 1.0f / static_cast<float>(ShadowAtlas::AtlasSize);
-
-    D3D11_MAPPED_SUBRESOURCE Mapped = {};
-    if (SUCCEEDED(Context.Context->Map(MomentBlurCB, 0, D3D11_MAP_WRITE_DISCARD, 0, &Mapped)))
-    {
-        std::memcpy(Mapped.pData, &BlurCBData, sizeof(BlurCBData));
-        Context.Context->Unmap(MomentBlurCB, 0);
-    }
-
-    Context.Device->SetDepthStencilState(EDepthStencilState::NoDepth);
-    Context.Device->SetBlendState(EBlendState::Opaque);
-    Context.Device->SetRasterizerState(ERasterizerState::SolidNoCull);
-
-    // Moment blur는 마지막 shadow rect viewport를 이어받으면 안 되므로 slice 전체 viewport로 복원합니다.
-    D3D11_VIEWPORT FullSliceViewport = {};
-    FullSliceViewport.TopLeftX = 0.0f;
-    FullSliceViewport.TopLeftY = 0.0f;
-    FullSliceViewport.Width = static_cast<float>(ShadowAtlas::AtlasSize);
-    FullSliceViewport.Height = static_cast<float>(ShadowAtlas::AtlasSize);
-    FullSliceViewport.MinDepth = 0.0f;
-    FullSliceViewport.MaxDepth = 1.0f;
-    Context.Context->RSSetViewports(1, &FullSliceViewport);
-
-    D3D11_RECT FullSliceScissor = {};
-    FullSliceScissor.left = 0;
-    FullSliceScissor.top = 0;
-    FullSliceScissor.right = static_cast<LONG>(ShadowAtlas::AtlasSize);
-    FullSliceScissor.bottom = static_cast<LONG>(ShadowAtlas::AtlasSize);
-    Context.Context->RSSetScissorRects(1, &FullSliceScissor);
-
-    Context.Context->IASetInputLayout(nullptr);
-    Context.Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    Context.Context->VSSetShader(MomentBlurVS, nullptr, 0);
-    Context.Context->PSSetConstantBuffers(ECBSlot::PerShader0, 1, &MomentBlurCB);
-
-    Context.Context->OMSetRenderTargets(1, &MomentBlurTempRTV, nullptr);
-    Context.Context->PSSetShader(MomentBlurPSHorizontal, nullptr, 0);
-    Context.Context->PSSetShaderResources(0, 1, &TargetSRV);
-    Context.Context->Draw(3, 0);
-
-    ID3D11ShaderResourceView* NullSRV = nullptr;
-    Context.Context->PSSetShaderResources(0, 1, &NullSRV);
-
-    Context.Context->OMSetRenderTargets(1, &TargetRTV, nullptr);
-    Context.Context->PSSetShader(MomentBlurPSVertical, nullptr, 0);
-    Context.Context->PSSetShaderResources(0, 1, &MomentBlurTempSRV);
-    Context.Context->Draw(3, 0);
-    Context.Context->PSSetShaderResources(0, 1, &NullSRV);
-
-    if (Context.StateCache)
-    {
-        Context.StateCache->Reset();
-    }
 }
 
 void FShadowMapPass::PrepareInputs(FRenderPipelineContext& Context)
@@ -421,6 +220,12 @@ void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
             continue;
         }
 
+        const bool bUsesVSMMoments = GetShadowFilterMethod() == EShadowFilterMethod::VSM;
+        if (bUsesVSMMoments && !AtlasPage->EnsureMomentResources(Context.Device->GetDevice()))
+        {
+            continue;
+        }
+
         ID3D11DepthStencilView* DSV = AtlasPage->GetSliceDSV(Item.Allocation->SliceIndex);
         ID3D11RenderTargetView* RTV = AtlasPage->GetMomentSliceRTV(Item.Allocation->SliceIndex);
         if (!DSV)
@@ -481,7 +286,7 @@ void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
                 continue;
             }
 
-            BlurMomentTextureSlice(Context, *AtlasPage, SliceIndex);
+            MomentFilter.BlurMomentTextureSlice(Context, *AtlasPage, SliceIndex);
         }
 
         if (ID3D11ShaderResourceView* MomentSRV = AtlasPage->GetMomentArraySRV())

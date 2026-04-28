@@ -10,6 +10,22 @@ void ReleaseView(ID3D11DeviceChild*& Resource)
         Resource = nullptr;
     }
 }
+
+void ReleaseMomentViews(
+    ID3D11Texture2D*& MomentTexture,
+    ID3D11RenderTargetView* (&MomentSliceRTVs)[ShadowAtlas::SliceCount],
+    ID3D11ShaderResourceView*& MomentArraySRV,
+    ID3D11ShaderResourceView* (&MomentSliceSRVs)[ShadowAtlas::SliceCount])
+{
+    for (uint32 SliceIndex = 0; SliceIndex < ShadowAtlas::SliceCount; ++SliceIndex)
+    {
+        ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentSliceRTVs[SliceIndex]));
+        ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentSliceSRVs[SliceIndex]));
+    }
+
+    ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentArraySRV));
+    ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentTexture));
+}
 } // namespace
 
 FShadowAtlasPage::~FShadowAtlasPage()
@@ -86,6 +102,21 @@ bool FShadowAtlasPage::Initialize(ID3D11Device* Device)
         return false;
     }
 
+    return true;
+}
+
+bool FShadowAtlasPage::EnsureMomentResources(ID3D11Device* Device)
+{
+    if (!Device)
+    {
+        return false;
+    }
+
+    if (MomentTexture)
+    {
+        return true;
+    }
+
     D3D11_TEXTURE2D_DESC MomentDesc = {};
     MomentDesc.Width = ShadowAtlas::AtlasSize;
     MomentDesc.Height = ShadowAtlas::AtlasSize;
@@ -99,7 +130,7 @@ bool FShadowAtlasPage::Initialize(ID3D11Device* Device)
 
     if (FAILED(Device->CreateTexture2D(&MomentDesc, nullptr, &MomentTexture)))
     {
-        Release();
+        ReleaseMomentViews(MomentTexture, MomentSliceRTVs, MomentArraySRV, MomentSliceSRVs);
         return false;
     }
 
@@ -113,7 +144,7 @@ bool FShadowAtlasPage::Initialize(ID3D11Device* Device)
         RTVDesc.Texture2DArray.ArraySize = 1;
         if (FAILED(Device->CreateRenderTargetView(MomentTexture, &RTVDesc, &MomentSliceRTVs[SliceIndex])))
         {
-            Release();
+            ReleaseMomentViews(MomentTexture, MomentSliceRTVs, MomentArraySRV, MomentSliceSRVs);
             return false;
         }
 
@@ -126,7 +157,7 @@ bool FShadowAtlasPage::Initialize(ID3D11Device* Device)
         SliceMomentDesc.Texture2DArray.ArraySize = 1;
         if (FAILED(Device->CreateShaderResourceView(MomentTexture, &SliceMomentDesc, &MomentSliceSRVs[SliceIndex])))
         {
-            Release();
+            ReleaseMomentViews(MomentTexture, MomentSliceRTVs, MomentArraySRV, MomentSliceSRVs);
             return false;
         }
     }
@@ -140,7 +171,7 @@ bool FShadowAtlasPage::Initialize(ID3D11Device* Device)
     MomentArrayDesc.Texture2DArray.ArraySize = ShadowAtlas::SliceCount;
     if (FAILED(Device->CreateShaderResourceView(MomentTexture, &MomentArrayDesc, &MomentArraySRV)))
     {
-        Release();
+        ReleaseMomentViews(MomentTexture, MomentSliceRTVs, MomentArraySRV, MomentSliceSRVs);
         return false;
     }
 
@@ -158,14 +189,11 @@ void FShadowAtlasPage::Release()
     {
         ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(SliceDSVs[SliceIndex]));
         ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(PreviewSliceSRVs[SliceIndex]));
-        ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentSliceRTVs[SliceIndex]));
-        ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentSliceSRVs[SliceIndex]));
     }
 
     ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(DepthArraySRV));
-    ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentArraySRV));
     ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(DepthTexture));
-    ReleaseView(reinterpret_cast<ID3D11DeviceChild*&>(MomentTexture));
+    ReleaseMomentViews(MomentTexture, MomentSliceRTVs, MomentArraySRV, MomentSliceSRVs);
 }
 
 bool FShadowAtlasPage::Allocate(uint32 Resolution, uint32 AtlasPageIndex, FShadowMapData& OutData)

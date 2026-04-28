@@ -5,7 +5,7 @@
 #include "Engine/Math/Matrix.h"
 #include "Render/Scene/Proxies/Light/LightProxyInfo.h"
 #include "Render/Scene/Proxies/SceneProxy.h"
-#include "Render/Submission/Atlas/ShadowAtlasAllocationMap.h"
+#include "Render/Submission/Atlas/ShadowAtlasTypes.h"
 #include "Render/Visibility/Frustum/ConvexVolume.h"
 
 class ULightComponent;

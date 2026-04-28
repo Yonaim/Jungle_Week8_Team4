@@ -12,10 +12,15 @@ public:
     {
     }
 
+    FShadowAtlasPage(const FShadowAtlasPage&) = delete;
+    FShadowAtlasPage& operator=(const FShadowAtlasPage&) = delete;
+
     ~FShadowAtlasPage();
 
     bool Initialize(ID3D11Device* Device) override;
+    bool EnsureMomentResources(ID3D11Device* Device);
     void Release() override;
+    bool HasMomentResources() const { return MomentTexture != nullptr; }
 
     bool Allocate(uint32 Resolution, uint32 AtlasPageIndex, FShadowMapData& OutData);
     void Free(const FShadowMapData& Allocation);
@@ -46,6 +51,9 @@ private:
 class FShadowAtlasPool
 {
 public:
+    FShadowAtlasPool() = default;
+    FShadowAtlasPool(const FShadowAtlasPool&) = delete;
+    FShadowAtlasPool& operator=(const FShadowAtlasPool&) = delete;
     ~FShadowAtlasPool();
 
     void Release();

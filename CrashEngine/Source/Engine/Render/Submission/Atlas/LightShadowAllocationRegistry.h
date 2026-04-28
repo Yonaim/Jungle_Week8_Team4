@@ -1,22 +1,12 @@
 #pragma once
 
 #include "Render/Submission/Atlas/ShadowAtlasPage.h"
+#include "Render/Submission/Atlas/ShadowAtlasTypes.h"
 
 class FLightProxy;
 
-// Light별 atlas allocation record를 보관하고 재할당 정책을 적용합니다.
-struct FLightShadowRecord
-{
-    uint32                Resolution           = 0;
-    uint32                CascadeCount         = 0;
-    uint32                LightType            = 0;
-    FCascadeShadowMapData CascadeShadowMapData = {};
-    FShadowMapData        SpotShadowMapData    = {};
-    FCubeShadowMapData    CubeShadowMapData    = {};
-};
-
-// 실제 역할은 light -> atlas allocation record 매핑 테이블에 가깝습니다.
-class FShadowAtlasAllocationMap
+// 실제 역할은 light -> shadow atlas allocation cache를 관리하는 registry입니다.
+class FLightShadowAllocationRegistry
 {
 public:
     void Release(FShadowAtlasPool& AtlasPool);

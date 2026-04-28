@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Render/Execute/Passes/Base/MeshPassBase.h"
-#include "Render/Submission/Atlas/ShadowAtlasAllocationMap.h"
+#include "Render/Submission/Atlas/LightShadowAllocationRegistry.h"
+#include "Render/Submission/Atlas/ShadowMomentFilter.h"
 
 class FLightProxy;
 
@@ -35,22 +36,9 @@ private:
         FMatrix               ViewProj   = FMatrix::Identity;
     };
 
-    void EnsureMomentBlurResources(ID3D11Device* Device);
-    void ReleaseMomentBlurResources();
-    void BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlasPage& AtlasPage, uint32 SliceIndex);
-
 private:
-    FShadowAtlasPool          AtlasPool;
-    FShadowAtlasAllocationMap ShadowAllocationMap;
-    TArray<FShadowRenderItem> RenderItems;
-
-    // TODO: 정리
-    ID3D11VertexShader*       MomentBlurVS           = nullptr;
-    ID3D11PixelShader*        MomentBlurPSHorizontal = nullptr;
-    ID3D11PixelShader*        MomentBlurPSVertical   = nullptr;
-    ID3D11Buffer*             MomentBlurCB           = nullptr;
-    ID3D11Texture2D*          MomentBlurTemp2D       = nullptr;
-    ID3D11RenderTargetView*   MomentBlurTempRTV      = nullptr;
-    ID3D11ShaderResourceView* MomentBlurTempSRV      = nullptr;
-    uint32                    MomentBlurTempSize     = 0;
+    FShadowAtlasPool               AtlasPool;
+    FLightShadowAllocationRegistry ShadowAllocationMap;
+    FShadowMomentFilter            MomentFilter;
+    TArray<FShadowRenderItem>      RenderItems;
 };

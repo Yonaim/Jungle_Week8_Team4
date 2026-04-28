@@ -1,29 +1,14 @@
-#include "Render/Submission/Atlas/ShadowAtlasAllocationMap.h"
+#include "Render/Submission/Atlas/LightShadowAllocationRegistry.h"
 
 #include "Component/DirectionalLightComponent.h"
 #include "Component/LightComponent.h"
 #include "Render/Scene/Proxies/Light/LightProxy.h"
 #include "Render/Scene/Proxies/Light/LightProxyInfo.h"
+#include "Render/Submission/Atlas/ShadowResolutionPolicy.h"
 
 #include <algorithm>
 
-namespace
-{
-uint32 ClampShadowResolution(uint32 Resolution)
-{
-    if (Resolution <= 256u)
-        return 256u;
-    if (Resolution <= 512u)
-        return 512u;
-    if (Resolution <= 1024u)
-        return 1024u;
-    if (Resolution <= 2048u)
-        return 2048u;
-    return 4096u;
-}
-} // namespace
-
-void FShadowAtlasAllocationMap::Release(FShadowAtlasPool& AtlasPool)
+void FLightShadowAllocationRegistry::Release(FShadowAtlasPool& AtlasPool)
 {
     for (auto& Pair : Records)
     {
@@ -32,7 +17,7 @@ void FShadowAtlasAllocationMap::Release(FShadowAtlasPool& AtlasPool)
     Records.clear();
 }
 
-void FShadowAtlasAllocationMap::RemoveLight(FLightProxy* Light, FShadowAtlasPool& AtlasPool)
+void FLightShadowAllocationRegistry::RemoveLight(FLightProxy* Light, FShadowAtlasPool& AtlasPool)
 {
     auto It = Records.find(Light);
     if (It == Records.end())
@@ -44,7 +29,7 @@ void FShadowAtlasAllocationMap::RemoveLight(FLightProxy* Light, FShadowAtlasPool
     Records.erase(It);
 }
 
-bool FShadowAtlasAllocationMap::UpdateLightShadow(FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
+bool FLightShadowAllocationRegistry::UpdateLightShadow(FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
 {
     if (!Light.Owner || !Light.bCastShadow)
     {
@@ -53,12 +38,12 @@ bool FShadowAtlasAllocationMap::UpdateLightShadow(FLightProxy& Light, ID3D11Devi
         return false;
     }
 
-    const uint32 Resolution   = ClampShadowResolution(Light.ShadowResolution);
+    const uint32 Resolution   = RoundShadowResolutionToTier(Light.ShadowResolution);
     const uint32 CascadeCount = std::clamp(Light.GetCascadeCountSetting(), 1, static_cast<int32>(ShadowAtlas::MaxCascades));
     const uint32 LightType    = Light.LightProxyInfo.LightType;
 
     FLightShadowRecord& Record = Records[&Light];
-    const bool          bNeedsReallocation =
+    const bool bNeedsReallocation =
         Record.Resolution != Resolution ||
         Record.CascadeCount != CascadeCount ||
         Record.LightType != LightType;
@@ -95,7 +80,7 @@ bool FShadowAtlasAllocationMap::UpdateLightShadow(FLightProxy& Light, ID3D11Devi
     return true;
 }
 
-void FShadowAtlasAllocationMap::FreeRecord(FLightShadowRecord& Record, FShadowAtlasPool& AtlasPool)
+void FLightShadowAllocationRegistry::FreeRecord(FLightShadowRecord& Record, FShadowAtlasPool& AtlasPool)
 {
     for (FShadowMapData& Cascade : Record.CascadeShadowMapData.Cascades)
     {
@@ -116,12 +101,11 @@ void FShadowAtlasAllocationMap::FreeRecord(FLightShadowRecord& Record, FShadowAt
     Record.CubeShadowMapData.Reset();
 }
 
-bool FShadowAtlasAllocationMap::AllocateDirectional(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
+bool FLightShadowAllocationRegistry::AllocateDirectional(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
 {
     Record.CascadeShadowMapData.Reset();
     Record.CascadeShadowMapData.CascadeCount = Record.CascadeCount;
 
-    // 현재는 cascade별 atlas rect만 따로 잡고, view-proj는 기존 light 계산값을 그대로 사용합니다.
     for (uint32 CascadeIndex = 0; CascadeIndex < Record.CascadeCount; ++CascadeIndex)
     {
         if (!AtlasPool.Allocate(Device, Record.Resolution, Record.CascadeShadowMapData.Cascades[CascadeIndex]))
@@ -135,14 +119,14 @@ bool FShadowAtlasAllocationMap::AllocateDirectional(FLightShadowRecord& Record, 
     return true;
 }
 
-bool FShadowAtlasAllocationMap::AllocateSpot(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
+bool FLightShadowAllocationRegistry::AllocateSpot(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
 {
     (void)Light;
     Record.SpotShadowMapData.Reset();
     return AtlasPool.Allocate(Device, Record.Resolution, Record.SpotShadowMapData);
 }
 
-bool FShadowAtlasAllocationMap::AllocatePoint(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
+bool FLightShadowAllocationRegistry::AllocatePoint(FLightShadowRecord& Record, FLightProxy& Light, ID3D11Device* Device, FShadowAtlasPool& AtlasPool)
 {
     Record.CubeShadowMapData.Reset();
     const FMatrix* PointShadowViewProjMatrices = Light.GetPointShadowViewProjMatrices();

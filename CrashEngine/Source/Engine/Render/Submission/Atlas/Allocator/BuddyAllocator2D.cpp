@@ -1,22 +1,7 @@
 #include "Render/Submission/Atlas/Allocator/BuddyAllocator2D.h"
 
 #include "Render/Submission/Atlas/ShadowAtlasLayoutUtils.h"
-
-namespace
-{
-uint32 ClampShadowResolution(uint32 Resolution)
-{
-    if (Resolution <= 256u)
-        return 256u;
-    if (Resolution <= 512u)
-        return 512u;
-    if (Resolution <= 1024u)
-        return 1024u;
-    if (Resolution <= 2048u)
-        return 2048u;
-    return 4096u;
-}
-} // namespace
+#include "Render/Submission/Atlas/ShadowResolutionPolicy.h"
 
 FBuddyAllocator2D::FBuddyAllocator2D()
 {
@@ -33,7 +18,7 @@ void FBuddyAllocator2D::Reset()
 
 bool FBuddyAllocator2D::Allocate(uint32 Resolution, FShadowMapData& OutData)
 {
-    const uint32 TargetSize = ClampShadowResolution(Resolution);
+    const uint32 TargetSize = RoundShadowResolutionToTier(Resolution);
     if (TargetSize < ShadowAtlas::MinResolution || TargetSize > ShadowAtlas::MaxResolution)
     {
         return false;

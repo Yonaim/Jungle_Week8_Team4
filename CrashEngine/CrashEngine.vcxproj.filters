@@ -902,7 +902,13 @@
     <ClCompile Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasPage.cpp">
       <Filter>Source\Engine\Render\Submission\Atlas</Filter>
     </ClCompile>
-    <ClCompile Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasAllocationMap.cpp">
+    <ClCompile Include="Source\Engine\Render\Submission\Atlas\LightShadowAllocationRegistry.cpp">
+      <Filter>Source\Engine\Render\Submission\Atlas</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\Submission\Atlas\ShadowMomentFilter.cpp">
+      <Filter>Source\Engine\Render\Submission\Atlas</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Engine\Render\Submission\Atlas\ShadowResolutionPolicy.cpp">
       <Filter>Source\Engine\Render\Submission\Atlas</Filter>
     </ClCompile>
     <ClCompile Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasLayoutUtils.cpp">
@@ -1655,7 +1661,13 @@
     <ClInclude Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasPage.h">
       <Filter>Source\Engine\Render\Submission\Atlas</Filter>
     </ClInclude>
-    <ClInclude Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasAllocationMap.h">
+    <ClInclude Include="Source\Engine\Render\Submission\Atlas\LightShadowAllocationRegistry.h">
+      <Filter>Source\Engine\Render\Submission\Atlas</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Submission\Atlas\ShadowMomentFilter.h">
+      <Filter>Source\Engine\Render\Submission\Atlas</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Engine\Render\Submission\Atlas\ShadowResolutionPolicy.h">
       <Filter>Source\Engine\Render\Submission\Atlas</Filter>
     </ClInclude>
     <ClInclude Include="Source\Engine\Render\Submission\Atlas\ShadowAtlasLayoutUtils.h">
