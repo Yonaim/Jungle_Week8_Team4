@@ -18,26 +18,26 @@ FShadowMapPass::~FShadowMapPass()
 
 bool FShadowMapPass::UpdateLightShadowAllocation(FLightProxy& Light, ID3D11Device* Device)
 {
-    return ShadowRegistry.UpdateLightShadow(Light, Device, AtlasManager);
+    return ShadowAllocationMap.UpdateLightShadow(Light, Device, AtlasPool);
 }
 
 void FShadowMapPass::ReleaseShadowAtlasResources()
 {
-    ShadowRegistry.Release(AtlasManager);
-    AtlasManager.Release();
+    ShadowAllocationMap.Release(AtlasPool);
+    AtlasPool.Release();
     ReleaseMomentBlurResources();
     RenderItems.clear();
 }
 
 ID3D11ShaderResourceView* FShadowMapPass::GetShadowAtlasSRV(uint32 PageIndex) const
 {
-    const FShadowAtlas* Page = AtlasManager.GetPage(PageIndex);
+    const FShadowAtlasPage* Page = AtlasPool.GetPage(PageIndex);
     return Page ? Page->GetDepthArraySRV() : nullptr;
 }
 
 ID3D11ShaderResourceView* FShadowMapPass::GetShadowMomentSRV(uint32 PageIndex) const
 {
-    const FShadowAtlas* Page = AtlasManager.GetPage(PageIndex);
+    const FShadowAtlasPage* Page = AtlasPool.GetPage(PageIndex);
     return Page ? Page->GetMomentArraySRV() : nullptr;
 }
 
@@ -48,13 +48,13 @@ ID3D11ShaderResourceView* FShadowMapPass::GetShadowPreviewSRV(const FShadowMapDa
         return nullptr;
     }
 
-    const FShadowAtlas* Page = AtlasManager.GetPage(ShadowMapData.AtlasPageIndex);
+    const FShadowAtlasPage* Page = AtlasPool.GetPage(ShadowMapData.AtlasPageIndex);
     return Page ? Page->GetPreviewSliceSRV(ShadowMapData.SliceIndex) : nullptr;
 }
 
 ID3D11ShaderResourceView* FShadowMapPass::GetShadowPageSlicePreviewSRV(uint32 PageIndex, uint32 SliceIndex) const
 {
-    const FShadowAtlas* Page = AtlasManager.GetPage(PageIndex);
+    const FShadowAtlasPage* Page = AtlasPool.GetPage(PageIndex);
     return Page ? Page->GetPreviewSliceSRV(SliceIndex) : nullptr;
 }
 
@@ -62,7 +62,7 @@ void FShadowMapPass::GetShadowPageSliceAllocations(uint32 PageIndex, uint32 Slic
 {
     OutAllocations.clear();
 
-    const FShadowAtlas* Page = AtlasManager.GetPage(PageIndex);
+    const FShadowAtlasPage* Page = AtlasPool.GetPage(PageIndex);
     if (!Page)
     {
         return;
@@ -73,7 +73,7 @@ void FShadowMapPass::GetShadowPageSliceAllocations(uint32 PageIndex, uint32 Slic
 
 uint32 FShadowMapPass::GetShadowAtlasPageCount() const
 {
-    return AtlasManager.GetPageCount();
+    return AtlasPool.GetPageCount();
 }
 
 void FShadowMapPass::EnsureMomentBlurResources(ID3D11Device* Device)
@@ -198,7 +198,7 @@ void FShadowMapPass::ReleaseMomentBlurResources()
     MomentBlurTempSize = 0;
 }
 
-void FShadowMapPass::BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlas& AtlasPage, uint32 SliceIndex)
+void FShadowMapPass::BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlasPage& AtlasPage, uint32 SliceIndex)
 {
     if (GetShadowFilterMethod() != EShadowFilterMethod::VSM || !Context.Device || !Context.Context)
     {
@@ -397,7 +397,7 @@ void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
             continue;
         }
 
-        FShadowAtlas* AtlasPage = AtlasManager.GetPage(Item.Allocation->AtlasPageIndex);
+        FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(Item.Allocation->AtlasPageIndex);
         if (!AtlasPage)
         {
             continue;
@@ -448,9 +448,9 @@ void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
         Context.DrawCommandList->SubmitRange(RangeStart, RangeEnd, *Context.Device, Context.Context, *Context.StateCache);
     }
 
-    for (uint32 PageIndex = 0; PageIndex < AtlasManager.GetPageCount(); ++PageIndex)
+    for (uint32 PageIndex = 0; PageIndex < AtlasPool.GetPageCount(); ++PageIndex)
     {
-        FShadowAtlas* AtlasPage = AtlasManager.GetPage(PageIndex);
+        FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(PageIndex);
         if (!AtlasPage)
         {
             continue;

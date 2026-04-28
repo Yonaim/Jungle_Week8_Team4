@@ -5,7 +5,7 @@
 #include "Engine/Math/Matrix.h"
 #include "Render/Scene/Proxies/Light/LightProxyInfo.h"
 #include "Render/Scene/Proxies/SceneProxy.h"
-#include "Render/Submission/Atlas/ShadowAtlasSystem.h"
+#include "Render/Submission/Atlas/ShadowAtlasAllocationMap.h"
 #include "Render/Visibility/Frustum/ConvexVolume.h"
 
 class ULightComponent;
@@ -37,16 +37,16 @@ public:
     FConvexVolume            ShadowViewFrustum;
     FMatrix                  LightViewProj;
     FMatrix                  ShadowViewProjMatrices[ShadowAtlas::MaxPointFaces];
-    bool                     bCastShadow = false;
-    uint32                   ShadowResolution = 1024;
+    bool                     bCastShadow          = false;
+    uint32                   ShadowResolution     = 1024;
     FCascadeShadowMapData    CascadeShadowMapData = {};
-    FShadowMapData           SpotShadowMapData = {};
-    FCubeShadowMapData       CubeShadowMapData = {};
+    FShadowMapData           SpotShadowMapData    = {};
+    FCubeShadowMapData       CubeShadowMapData    = {};
 
-    float ShadowBias = 0.005f;
-    float ShadowSlopeBias = 0.5f;
-    float ShadowNormalBias = 1.0f;
-    int32 CascadeCount = 1;
+    float ShadowBias            = 0.005f;
+    float ShadowSlopeBias       = 0.5f;
+    float ShadowNormalBias      = 1.0f;
+    int32 CascadeCount          = 1;
     float DynamicShadowDistance = 2000.0f;
-    float CascadeDistribution = 1.0f;
+    float CascadeDistribution   = 1.0f;
 };

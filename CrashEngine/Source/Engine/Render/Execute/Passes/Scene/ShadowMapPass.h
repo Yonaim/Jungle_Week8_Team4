@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Render/Execute/Passes/Base/MeshPassBase.h"
-#include "Render/Submission/Atlas/ShadowAtlasSystem.h"
+#include "Render/Submission/Atlas/ShadowAtlasAllocationMap.h"
 
 class FLightProxy;
 
@@ -23,27 +23,28 @@ public:
     ID3D11ShaderResourceView* GetShadowMomentSRV(uint32 PageIndex) const;
     ID3D11ShaderResourceView* GetShadowPreviewSRV(const FShadowMapData& ShadowMapData) const;
     ID3D11ShaderResourceView* GetShadowPageSlicePreviewSRV(uint32 PageIndex, uint32 SliceIndex) const;
-    void GetShadowPageSliceAllocations(uint32 PageIndex, uint32 SliceIndex, TArray<FShadowMapData>& OutAllocations) const;
-    uint32 GetShadowAtlasPageCount() const;
-    uint32 GetShadowAtlasSize() const { return ShadowAtlas::AtlasSize; }
+    void                      GetShadowPageSliceAllocations(uint32 PageIndex, uint32 SliceIndex, TArray<FShadowMapData>& OutAllocations) const;
+    uint32                    GetShadowAtlasPageCount() const;
+    uint32                    GetShadowAtlasSize() const { return ShadowAtlas::AtlasSize; }
 
 private:
     struct FShadowRenderItem
     {
-        FLightProxy* Light = nullptr;
+        FLightProxy*          Light      = nullptr;
         const FShadowMapData* Allocation = nullptr;
-        FMatrix ViewProj = FMatrix::Identity;
+        FMatrix               ViewProj   = FMatrix::Identity;
     };
 
     void EnsureMomentBlurResources(ID3D11Device* Device);
     void ReleaseMomentBlurResources();
-    void BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlas& AtlasPage, uint32 SliceIndex);
+    void BlurMomentTextureSlice(FRenderPipelineContext& Context, FShadowAtlasPage& AtlasPage, uint32 SliceIndex);
 
 private:
-    FShadowAtlasManager  AtlasManager;
-    FShadowAtlasRegistry ShadowRegistry;
+    FShadowAtlasPool          AtlasPool;
+    FShadowAtlasAllocationMap ShadowAllocationMap;
     TArray<FShadowRenderItem> RenderItems;
 
+    // TODO: 정리
     ID3D11VertexShader*       MomentBlurVS           = nullptr;
     ID3D11PixelShader*        MomentBlurPSHorizontal = nullptr;
     ID3D11PixelShader*        MomentBlurPSVertical   = nullptr;
