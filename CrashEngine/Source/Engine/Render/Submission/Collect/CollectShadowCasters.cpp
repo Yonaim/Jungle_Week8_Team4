@@ -3,114 +3,41 @@
 #include "Collision/SpatialPartition.h"
 #include "GameFramework/World.h"
 #include "Render/Execute/Context/Scene/SceneView.h"
-#include "Render/Scene/Proxies/Light/LightProxy.h"
 #include "Render/Resources/Shadows/ShadowMapSettings.h"
+#include "Render/Scene/Proxies/Light/LightProxy.h"
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 
 namespace
 {
-    void BuildPerspectiveFrustumCorners(const FSceneView* SceneView, float NearZ, float FarZ, FVector OutCorners[8])
-    {
-        const float Aspect = SceneView->ViewportWidth / std::max(1.0f, SceneView->ViewportHeight);
-        const float TanHalfFov = std::tan(SceneView->FOV * 0.5f);
-        const float NearHalfHeight = TanHalfFov * NearZ;
-        const float NearHalfWidth = NearHalfHeight * Aspect;
-        const float FarHalfHeight = TanHalfFov * FarZ;
-        const float FarHalfWidth = FarHalfHeight * Aspect;
+void BuildPerspectiveFrustumCorners(const FSceneView* SceneView, float NearZ, float FarZ, FVector OutCorners[8])
+{
+    const float Aspect = SceneView->ViewportWidth / std::max(1.0f, SceneView->ViewportHeight);
+    const float TanHalfFov = std::tan(SceneView->FOV * 0.5f);
+    const float NearHalfHeight = TanHalfFov * NearZ;
+    const float NearHalfWidth = NearHalfHeight * Aspect;
+    const float FarHalfHeight = TanHalfFov * FarZ;
+    const float FarHalfWidth = FarHalfHeight * Aspect;
 
-        const FVector NearCenter = SceneView->CameraPosition + SceneView->CameraForward * NearZ;
-        const FVector FarCenter = SceneView->CameraPosition + SceneView->CameraForward * FarZ;
-        const FVector NearRight = SceneView->CameraRight * NearHalfWidth;
-        const FVector NearUp = SceneView->CameraUp * NearHalfHeight;
-        const FVector FarRight = SceneView->CameraRight * FarHalfWidth;
-        const FVector FarUp = SceneView->CameraUp * FarHalfHeight;
+    const FVector NearCenter = SceneView->CameraPosition + SceneView->CameraForward * NearZ;
+    const FVector FarCenter = SceneView->CameraPosition + SceneView->CameraForward * FarZ;
+    const FVector NearRight = SceneView->CameraRight * NearHalfWidth;
+    const FVector NearUp = SceneView->CameraUp * NearHalfHeight;
+    const FVector FarRight = SceneView->CameraRight * FarHalfWidth;
+    const FVector FarUp = SceneView->CameraUp * FarHalfHeight;
 
-        OutCorners[0] = NearCenter - NearRight - NearUp;
-        OutCorners[1] = NearCenter + NearRight - NearUp;
-        OutCorners[2] = NearCenter + NearRight + NearUp;
-        OutCorners[3] = NearCenter - NearRight + NearUp;
-        OutCorners[4] = FarCenter - FarRight - FarUp;
-        OutCorners[5] = FarCenter + FarRight - FarUp;
-        OutCorners[6] = FarCenter + FarRight + FarUp;
-        OutCorners[7] = FarCenter - FarRight + FarUp;
-    }
+    OutCorners[0] = NearCenter - NearRight - NearUp;
+    OutCorners[1] = NearCenter + NearRight - NearUp;
+    OutCorners[2] = NearCenter + NearRight + NearUp;
+    OutCorners[3] = NearCenter - NearRight + NearUp;
+    OutCorners[4] = FarCenter - FarRight - FarUp;
+    OutCorners[5] = FarCenter + FarRight - FarUp;
+    OutCorners[6] = FarCenter + FarRight + FarUp;
+    OutCorners[7] = FarCenter - FarRight + FarUp;
+}
 } // namespace
-
-void FDrawCollector::UpdateShadowViews(UWorld* World, const FSceneView* SceneView)
-{
-    if (!World || !SceneView)
-    {
-        return;
-    }
-
-    for (FLightProxy* Light : CollectedSceneData.Lights.VisibleLightProxies)
-    {
-        if (!Light)
-        {
-            continue;
-        }
-
-        Light->ClearShadowData();
-
-        if (!Light->bCastShadow)
-        {
-            continue;
-        }
-
-        FLightProxyInfo& LC = Light->LightProxyInfo;
-        if (LC.LightType == static_cast<uint32>(ELightType::Directional))
-        {
-            ComputeDirectionalShadowMatrices(Light, World, SceneView);
-        }
-        else if (LC.LightType == static_cast<uint32>(ELightType::Spot))
-        {
-            ComputeSpotShadowMatrices(Light);
-        }
-        else if (LC.LightType == static_cast<uint32>(ELightType::Point))
-        {
-            ComputePointShadowMatrices(Light);
-        }
-        else
-        {
-            continue;
-        }
-
-        Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
-    }
-}
-
-void FDrawCollector::ComputeDirectionalShadowMatrices(FLightProxy* Light, UWorld* World, const FSceneView* SceneView)
-{
-    FLightProxyInfo& LC = Light->LightProxyInfo;
-    FVector LightDir = LC.Direction.Normalized();
-
-    FShadowViewData ShadowView = {};
-    switch (GetShadowMapMethod())
-    {
-    case EShadowMapMethod::SSM:
-        ShadowView = GetDirectionalSSMView(World, LightDir);
-        break;
-    case EShadowMapMethod::PSM:
-        ShadowView = GetDirectionalPSMView(World, LightDir, SceneView, Light->DynamicShadowDistance);
-        break;
-    case EShadowMapMethod::CSM:
-        ShadowView = GetDirectionalSSMView(World, LightDir);
-        break;
-    }
-
-    Light->LightShadowView = ShadowView;
-    Light->LightViewProj = ShadowView.ViewProj;
-
-    const uint32 CascadeCount = static_cast<uint32>(std::clamp(Light->CascadeCount, 1, static_cast<int32>(ShadowAtlas::MaxCascades)));
-    Light->CascadeShadowMapData.CascadeCount = CascadeCount;
-    for (uint32 CascadeIndex = 0; CascadeIndex < CascadeCount; ++CascadeIndex)
-    {
-        Light->CascadeShadowMapData.CascadeViews[CascadeIndex] = ShadowView;
-        Light->CascadeShadowMapData.CascadeViewProj[CascadeIndex] = ShadowView.ViewProj;
-    }
-}
 
 FShadowViewData FDrawCollector::GetDirectionalSSMView(UWorld* World, FVector LightDir)
 {
@@ -119,8 +46,8 @@ FShadowViewData FDrawCollector::GetDirectionalSSMView(UWorld* World, FVector Lig
     Up = Right.Cross(LightDir).Normalized();
 
     const FOctree* Octree = World->GetPartition().GetOctree();
-    FBoundingBox SceneBounds = Octree ? Octree->GetCellBounds() : FBoundingBox(FVector(-500), FVector(500));
-    FVector SceneCenter = SceneBounds.GetCenter();
+    const FBoundingBox SceneBounds = Octree ? Octree->GetCellBounds() : FBoundingBox(FVector(-500), FVector(500));
+    const FVector SceneCenter = SceneBounds.GetCenter();
 
     FMatrix LightView = FMatrix::Identity;
     LightView.M[0][0] = Right.X; LightView.M[0][1] = Up.X; LightView.M[0][2] = LightDir.X;
@@ -189,7 +116,8 @@ FShadowViewData FDrawCollector::GetDirectionalPSMView(UWorld* World, FVector Lig
     const float VCFar = VCSlideBack + CameraFar;
     const FMatrix VCProj = FMatrix::MakePerspective(FOV, Aspect, VCNear, VCFar);
 
-    FMatrix ViewPP, ProjPP;
+    FMatrix ViewPP;
+    FMatrix ProjPP;
     float NearPP = 0.0f;
     float FarPP = 1.0f;
     {
@@ -250,11 +178,51 @@ FShadowViewData FDrawCollector::GetDirectionalPSMView(UWorld* World, FVector Lig
     return ShadowView;
 }
 
+void FDrawCollector::ComputeDirectionalShadowMatrices(FLightProxy* Light, UWorld* World, const FSceneView* SceneView)
+{
+    const FCascadeShadowMapData* ExistingCascadeData = Light->GetCascadeShadowMapData();
+    FCascadeShadowMapData* CascadeShadowMapData = Light->GetCascadeShadowMapData();
+    if (!ExistingCascadeData || !CascadeShadowMapData)
+    {
+        return;
+    }
+
+    FShadowViewData ShadowView = {};
+    const FVector LightDir = Light->LightProxyInfo.Direction.Normalized();
+    switch (GetShadowMapMethod())
+    {
+    case EShadowMapMethod::Standard:
+        ShadowView = GetDirectionalSSMView(World, LightDir);
+        break;
+    case EShadowMapMethod::PSM:
+        ShadowView = GetDirectionalPSMView(World, LightDir, SceneView, Light->GetDynamicShadowDistanceSetting());
+        break;
+    default:
+        ShadowView = GetDirectionalSSMView(World, LightDir);
+        break;
+    }
+
+    Light->LightViewProj = ShadowView.ViewProj;
+    const uint32 CascadeCount = static_cast<uint32>(std::clamp(Light->GetCascadeCountSetting(), 1, static_cast<int32>(ShadowAtlas::MaxCascades)));
+    CascadeShadowMapData->CascadeCount = CascadeCount;
+    for (uint32 CascadeIndex = 0; CascadeIndex < CascadeCount; ++CascadeIndex)
+    {
+        CascadeShadowMapData->CascadeViews[CascadeIndex] = ShadowView;
+        CascadeShadowMapData->CascadeViewProj[CascadeIndex] = ShadowView.ViewProj;
+    }
+}
+
 void FDrawCollector::ComputeSpotShadowMatrices(FLightProxy* Light)
 {
-    FLightProxyInfo& LC = Light->LightProxyInfo;
-    FVector LightPos = LC.Position;
-    FVector LightDir = LC.Direction.Normalized();
+    FShadowViewData* SpotShadowView = Light->GetSpotShadowView();
+    if (!SpotShadowView)
+    {
+        return;
+    }
+
+    const FLightProxyInfo& LC = Light->LightProxyInfo;
+    const FVector LightPos = LC.Position;
+    const FVector LightDir = LC.Direction.Normalized();
 
     FVector Up = (std::abs(LightDir.Z) < 0.999f) ? FVector(0, 0, 1) : FVector(0, 1, 0);
     FVector Right = LightDir.Cross(Up).Normalized();
@@ -273,17 +241,24 @@ void FDrawCollector::ComputeSpotShadowMatrices(FLightProxy* Light)
     const float FOV = LC.OuterConeAngle * 2.0f * (3.141592f / 180.0f);
     const FMatrix LightProj = FMatrix::MakePerspective(FOV, 1.0f, NearZ, FarZ);
 
-    Light->LightShadowView.Set(LightView, LightProj, NearZ, FarZ, 1);
-    Light->LightViewProj = Light->LightShadowView.ViewProj;
+    SpotShadowView->Set(LightView, LightProj, NearZ, FarZ, 1);
+    Light->LightViewProj = SpotShadowView->ViewProj;
 }
 
 void FDrawCollector::ComputePointShadowMatrices(FLightProxy* Light)
 {
-    FLightProxyInfo& LC = Light->LightProxyInfo;
-    FVector LightPos = LC.Position;
+    FCubeShadowMapData* CubeShadowMapData = Light->GetCubeShadowMapData();
+    FMatrix* PointShadowViewProjMatrices = Light->GetPointShadowViewProjMatrices();
+    if (!CubeShadowMapData || !PointShadowViewProjMatrices)
+    {
+        return;
+    }
+
+    const FLightProxyInfo& LC = Light->LightProxyInfo;
+    const FVector LightPos = LC.Position;
     const float NearZ = 1.0f;
     const float FarZ = std::max(NearZ + 0.001f, LC.AttenuationRadius);
-    FMatrix LightProjCube = FMatrix::MakePerspective(0.5f * 3.141592f, 1.0f, NearZ, FarZ);
+    const FMatrix LightProjCube = FMatrix::MakePerspective(0.5f * 3.141592f, 1.0f, NearZ, FarZ);
 
     struct FFaceDir
     {
@@ -306,22 +281,20 @@ void FDrawCollector::ComputePointShadowMatrices(FLightProxy* Light)
         const FVector Up = Faces[FaceIndex].Up;
         const FVector Right = Up.Cross(Forward).Normalized();
 
-        FMatrix LightViewCube = FMatrix::Identity;
-        LightViewCube.M[0][0] = Right.X; LightViewCube.M[0][1] = Up.X; LightViewCube.M[0][2] = Forward.X;
-        LightViewCube.M[1][0] = Right.Y; LightViewCube.M[1][1] = Up.Y; LightViewCube.M[1][2] = Forward.Y;
-        LightViewCube.M[2][0] = Right.Z; LightViewCube.M[2][1] = Up.Z; LightViewCube.M[2][2] = Forward.Z;
-        LightViewCube.M[3][0] = -LightPos.Dot(Right);
-        LightViewCube.M[3][1] = -LightPos.Dot(Up);
-        LightViewCube.M[3][2] = -LightPos.Dot(Forward);
+        FMatrix LightView = FMatrix::Identity;
+        LightView.M[0][0] = Right.X; LightView.M[0][1] = Up.X; LightView.M[0][2] = Forward.X;
+        LightView.M[1][0] = Right.Y; LightView.M[1][1] = Up.Y; LightView.M[1][2] = Forward.Y;
+        LightView.M[2][0] = Right.Z; LightView.M[2][1] = Up.Z; LightView.M[2][2] = Forward.Z;
+        LightView.M[3][0] = -LightPos.Dot(Right);
+        LightView.M[3][1] = -LightPos.Dot(Up);
+        LightView.M[3][2] = -LightPos.Dot(Forward);
 
-        Light->ShadowFaceViews[FaceIndex].Set(LightViewCube, LightProjCube, NearZ, FarZ, 1);
-        Light->ShadowViewProjMatrices[FaceIndex] = Light->ShadowFaceViews[FaceIndex].ViewProj;
-        Light->CubeShadowMapData.FaceViews[FaceIndex] = Light->ShadowFaceViews[FaceIndex];
-        Light->CubeShadowMapData.FaceViewProj[FaceIndex] = Light->ShadowFaceViews[FaceIndex].ViewProj;
+        CubeShadowMapData->FaceViews[FaceIndex].Set(LightView, LightProjCube, NearZ, FarZ, 1);
+        PointShadowViewProjMatrices[FaceIndex] = CubeShadowMapData->FaceViews[FaceIndex].ViewProj;
+        CubeShadowMapData->FaceViewProj[FaceIndex] = CubeShadowMapData->FaceViews[FaceIndex].ViewProj;
     }
 
-    Light->LightViewProj = Light->ShadowViewProjMatrices[0];
-    Light->LightShadowView = Light->ShadowFaceViews[0];
+    Light->LightViewProj = PointShadowViewProjMatrices[0];
 }
 
 void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* SceneView)
@@ -333,29 +306,44 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
 
     for (FLightProxy* Light : CollectedSceneData.Lights.VisibleLightProxies)
     {
-        if (!Light || !Light->bCastShadow)
+        if (!Light)
         {
             continue;
         }
 
+        Light->ClearShadowData();
         Light->VisibleShadowCasters.clear();
 
-        FLightProxyInfo& LC = Light->LightProxyInfo;
-        if (LC.LightType == static_cast<uint32>(ELightType::Point))
+        if (!Light->bCastShadow)
         {
-            World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, Light->VisibleShadowCasters);
+            continue;
         }
-        else if (LC.LightType == static_cast<uint32>(ELightType::Directional) ||
-                 LC.LightType == static_cast<uint32>(ELightType::Spot))
+
+        FLightProxyInfo& LC = Light->LightProxyInfo;
+        if (LC.LightType == static_cast<uint32>(ELightType::Directional))
         {
-            const bool bUseCameraFrustumForPSM =
-                LC.LightType == static_cast<uint32>(ELightType::Directional) &&
-                GetShadowMapMethod() == EShadowMapMethod::PSM;
+            ComputeDirectionalShadowMatrices(Light, World, SceneView);
+            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
 
             const FConvexVolume& CasterQueryFrustum =
-                bUseCameraFrustumForPSM ? SceneView->FrustumVolume : Light->ShadowViewFrustum;
-
+                GetShadowMapMethod() == EShadowMapMethod::PSM ? SceneView->FrustumVolume : Light->ShadowViewFrustum;
             World->GetPartition().QueryFrustumAllProxies(CasterQueryFrustum, Light->VisibleShadowCasters);
+            continue;
+        }
+
+        if (LC.LightType == static_cast<uint32>(ELightType::Spot))
+        {
+            ComputeSpotShadowMatrices(Light);
+            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
+            World->GetPartition().QueryFrustumAllProxies(Light->ShadowViewFrustum, Light->VisibleShadowCasters);
+            continue;
+        }
+
+        if (LC.LightType == static_cast<uint32>(ELightType::Point))
+        {
+            ComputePointShadowMatrices(Light);
+            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
+            World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, Light->VisibleShadowCasters);
         }
     }
 }
