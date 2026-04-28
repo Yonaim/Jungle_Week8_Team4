@@ -70,6 +70,7 @@ void UEditorEngine::Init(FWindowsWindow* InWindow)
     // Selection & Gizmo
     SelectionManager.Init();
     SelectionManager.SetWorld(GetWorld());
+    UndoManager.Init(&SelectionManager);
 
     ViewportLayout.Initialize(this, Window, Renderer, &SelectionManager);
     ViewportLayout.LoadFromSettings();
@@ -81,6 +82,7 @@ void UEditorEngine::Shutdown()
     ViewportLayout.SaveToSettings();
     FEditorSettings::Get().SaveToFile(FEditorSettings::GetDefaultSettingsPath());
     CloseScene();
+    UndoManager.Shutdown();
     SelectionManager.Shutdown();
     MainPanel.Release();
     GPUOcclusion.Release();
@@ -446,6 +448,7 @@ void UEditorEngine::CloseScene()
 void UEditorEngine::NewScene()
 {
     StopPlayInEditorImmediate();
+    UndoManager.Clear();
     ClearScene();
     FWorldContext& Ctx = CreateWorldContext(EWorldType::Editor, FName("NewScene"), "New Scene");
     Ctx.World->InitWorld();
@@ -458,6 +461,7 @@ void UEditorEngine::NewScene()
 void UEditorEngine::ClearScene()
 {
     StopPlayInEditorImmediate();
+    UndoManager.Clear();
     SelectionManager.ClearSelection();
     SelectionManager.SetWorld(nullptr);
 

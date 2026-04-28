@@ -502,7 +502,12 @@ void FEditorDetailsPanel::RenderActorProperties(AActor* PrimaryActor, const TArr
         FVector Scale = PrimaryActor->GetActorScale();
         float ScaleArray[3] = { Scale.X, Scale.Y, Scale.Z };
 
-        if (ImGui::DragFloat3("Location", PosArray, 0.1f))
+        const bool bLocationChanged = ImGui::DragFloat3("Location", PosArray, 0.1f);
+        if (ImGui::IsItemActivated())
+        {
+            EditorEngine->GetUndoManager().BeginTransform(EditorEngine->GetWorld(), SelectedActors);
+        }
+        if (bLocationChanged)
         {
             FVector Delta = FVector(PosArray[0], PosArray[1], PosArray[2]) - Pos;
             for (AActor* Actor : SelectedActors)
@@ -512,13 +517,22 @@ void FEditorDetailsPanel::RenderActorProperties(AActor* PrimaryActor, const TArr
             }
             EditorEngine->GetGizmo()->UpdateGizmoTransform();
         }
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            EditorEngine->GetUndoManager().EndTransform();
+        }
         {
             // Rotation: CachedEditRotator를 X=Roll(X축), Y=Pitch(Y축), Z=Yaw(Z축)로 노출
             FRotator& CachedRot = RootComp->GetCachedEditRotator();
             FRotator PrevRot = CachedRot;
             float RotXYZ[3] = { CachedRot.Roll, CachedRot.Pitch, CachedRot.Yaw };
 
-            if (ImGui::DragFloat3("Rotation", RotXYZ, 0.1f))
+            const bool bRotationChanged = ImGui::DragFloat3("Rotation", RotXYZ, 0.1f);
+            if (ImGui::IsItemActivated())
+            {
+                EditorEngine->GetUndoManager().BeginTransform(EditorEngine->GetWorld(), SelectedActors);
+            }
+            if (bRotationChanged)
             {
                 CachedRot.Roll = RotXYZ[0];
                 CachedRot.Pitch = RotXYZ[1];
@@ -542,8 +556,17 @@ void FEditorDetailsPanel::RenderActorProperties(AActor* PrimaryActor, const TArr
                 RootComp->ApplyCachedEditRotator();
                 EditorEngine->GetGizmo()->UpdateGizmoTransform();
             }
+            if (ImGui::IsItemDeactivatedAfterEdit())
+            {
+                EditorEngine->GetUndoManager().EndTransform();
+            }
         }
-        if (ImGui::DragFloat3("Scale", ScaleArray, 0.1f))
+        const bool bScaleChanged = ImGui::DragFloat3("Scale", ScaleArray, 0.1f);
+        if (ImGui::IsItemActivated())
+        {
+            EditorEngine->GetUndoManager().BeginTransform(EditorEngine->GetWorld(), SelectedActors);
+        }
+        if (bScaleChanged)
         {
             FVector Delta = FVector(ScaleArray[0], ScaleArray[1], ScaleArray[2]) - Scale;
             for (AActor* Actor : SelectedActors)
@@ -551,6 +574,10 @@ void FEditorDetailsPanel::RenderActorProperties(AActor* PrimaryActor, const TArr
                 if (Actor)
                     Actor->SetActorScale(Actor->GetActorScale() + Delta);
             }
+        }
+        if (ImGui::IsItemDeactivatedAfterEdit())
+        {
+            EditorEngine->GetUndoManager().EndTransform();
         }
     }
 

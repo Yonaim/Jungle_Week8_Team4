@@ -73,6 +73,9 @@
     <Filter Include="Source\Editor\Selection">
       <UniqueIdentifier>{62537a50-933d-e461-6a5b-e8f67609290e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source\Editor\Undo">
+      <UniqueIdentifier>{fb7f1b5d-21e5-4d22-bf77-ef7e47a28e41}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source\Editor\Settings">
       <UniqueIdentifier>{036db545-193c-1f28-ce7e-3d94c9fcad53}</UniqueIdentifier>
     </Filter>
@@ -454,6 +457,9 @@
     </ClCompile>
     <ClCompile Include="Source\Editor\Selection\SelectionManager.cpp">
       <Filter>Source\Editor\Selection</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Editor\Undo\EditorUndoManager.cpp">
+      <Filter>Source\Editor\Undo</Filter>
     </ClCompile>
     <ClCompile Include="Source\Editor\Settings\EditorSettings.cpp">
       <Filter>Source\Editor\Settings</Filter>
@@ -1870,6 +1876,9 @@
     </ClInclude>
     <ClInclude Include="Source\Editor\Input\EditorViewportTool.h">
       <Filter>Source\Editor\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Editor\Undo\EditorUndoManager.h">
+      <Filter>Source\Editor\Undo</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -35,6 +35,26 @@ bool FEditorViewportCommandTool::HandleInput(float DeltaTime)
 
 	FSelectionManager* SelectionManager = Owner->GetSelectionManager();
 
+    if (Input.Modifiers.bCtrl && Input.KeyDown['Z'])
+    {
+        if (Input.KeyPressed['Z'])
+        {
+            EditorEngine->GetUndoManager().Undo();
+        }
+
+        return true;
+    }
+
+    if (Input.Modifiers.bCtrl && Input.KeyDown['Y'])
+    {
+        if (Input.KeyPressed['Y'])
+        {
+            EditorEngine->GetUndoManager().Redo();
+        }
+
+        return true;
+    }
+
     if (SelectionManager && Input.KeyPressed[VK_DELETE])
     {
         UWorld* World = Owner->GetWorld();
@@ -49,6 +69,7 @@ bool FEditorViewportCommandTool::HandleInput(float DeltaTime)
             return false;
         }
 
+        EditorEngine->GetUndoManager().RecordDelete(World, ActorsToDelete);
         SelectionManager->ClearSelection();
 
         World->BeginDeferredPickingBVHUpdate();
@@ -110,6 +131,7 @@ bool FEditorViewportCommandTool::HandleInput(float DeltaTime)
                 {
                     SelectionManager->ToggleSelect(Actor);
                 }
+                EditorEngine->GetUndoManager().RecordCreate(Owner->GetWorld(), NewSelection);
             }
         }
 		

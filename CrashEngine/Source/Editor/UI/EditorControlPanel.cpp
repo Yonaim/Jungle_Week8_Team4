@@ -34,11 +34,11 @@ namespace
 struct FSpawnEntry
 {
     const char* Label;
-    void (*Spawn)(UWorld* World, const FVector& SpawnPoint);
+    AActor* (*Spawn)(UWorld* World, const FVector& SpawnPoint);
 };
 
 template <typename TActor, typename... TArgs>
-void SpawnActor(UWorld* World, const FVector& SpawnPoint, bool bInsertToOctree, TArgs&&... Args)
+AActor* SpawnActor(UWorld* World, const FVector& SpawnPoint, bool bInsertToOctree, TArgs&&... Args)
 {
     TActor* Actor = World->SpawnActor<TActor>();
     Actor->InitDefaultComponents(std::forward<TArgs>(Args)...);
@@ -46,10 +46,12 @@ void SpawnActor(UWorld* World, const FVector& SpawnPoint, bool bInsertToOctree, 
 
     if (bInsertToOctree)
         World->InsertActorToOctree(Actor);
+
+    return Actor;
 }
 
-#define SPAWN_MESH(Label, Path) { Label, [](UWorld* W, const FVector& P) { SpawnActor<AStaticMeshActor>(W, P, true, Path); } }
-#define SPAWN_ACTOR(Label, Type, bOctree) { Label, [](UWorld* W, const FVector& P) { SpawnActor<Type>(W, P, bOctree); } }
+#define SPAWN_MESH(Label, Path) { Label, [](UWorld* W, const FVector& P) -> AActor* { return SpawnActor<AStaticMeshActor>(W, P, true, Path); } }
+#define SPAWN_ACTOR(Label, Type, bOctree) { Label, [](UWorld* W, const FVector& P) -> AActor* { return SpawnActor<Type>(W, P, bOctree); } }
 
 constexpr FSpawnEntry SpawnTable[] = {
     SPAWN_MESH("Cube", FPaths::ContentRelativePath("Models/_Basic/Cube.OBJ")),
@@ -100,8 +102,16 @@ void FEditorControlPanel::Render(float DeltaTime)
         UWorld* World = EditorEngine->GetWorld();
         if (SelectedPrimitiveType >= 0 && SelectedPrimitiveType < SpawnTableSize)
         {
+            TArray<AActor*> CreatedActors;
+            CreatedActors.reserve(NumberOfSpawnedActors);
             for (int32 i = 0; i < NumberOfSpawnedActors; ++i)
-                SpawnTable[SelectedPrimitiveType].Spawn(World, CurSpawnPoint);
+            {
+                if (AActor* Actor = SpawnTable[SelectedPrimitiveType].Spawn(World, CurSpawnPoint))
+                {
+                    CreatedActors.push_back(Actor);
+                }
+            }
+            EditorEngine->GetUndoManager().RecordCreate(World, CreatedActors);
         }
         NumberOfSpawnedActors = 1;
     }

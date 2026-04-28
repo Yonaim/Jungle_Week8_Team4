@@ -3,7 +3,9 @@
 #include "Collision/RayUtils.h"
 #include "Component/CameraComponent.h"
 #include "Component/GizmoComponent.h"
+#include "Editor/EditorEngine.h"
 #include "Editor/Input/EditorViewportInputController.h"
+#include "Editor/Selection/SelectionManager.h"
 #include "Editor/Viewport/EditorViewportClient.h"
 #include "GameFramework/World.h"
 
@@ -90,10 +92,18 @@ void FEditorGizmoTool::ResetState()
     if (Gizmo->IsHolding())
     {
         Gizmo->DragEnd();
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            EditorEngine->GetUndoManager().CancelTransform();
+        }
     }
     else if (Gizmo->IsPressedOnHandle())
     {
         Gizmo->SetPressedOnHandle(false);
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            EditorEngine->GetUndoManager().CancelTransform();
+        }
     }
 }
 
@@ -109,6 +119,14 @@ bool FEditorGizmoTool::HandleDragStart(const FRay& Ray)
 
     if (FRayUtils::RaycastComponent(Gizmo, Ray, HitResult))
     {
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            if (FSelectionManager* SelectionManager = Owner->GetSelectionManager())
+            {
+                EditorEngine->GetUndoManager().BeginTransform(Owner->GetWorld(), SelectionManager->GetSelectedActors());
+            }
+        }
+
         Gizmo->SetPressedOnHandle(true);
         return true;
     }
@@ -150,12 +168,20 @@ bool FEditorGizmoTool::HandleDragEnd()
     if (Gizmo->IsHolding())
     {
         Gizmo->DragEnd();
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            EditorEngine->GetUndoManager().EndTransform();
+        }
         return true;
     }
 
     if (Gizmo->IsPressedOnHandle())
     {
         Gizmo->SetPressedOnHandle(false);
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            EditorEngine->GetUndoManager().EndTransform();
+        }
         return true;
     }
 

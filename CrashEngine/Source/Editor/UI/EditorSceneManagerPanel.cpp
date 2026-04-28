@@ -115,6 +115,7 @@ void FEditorScenePanel::RenderActorOutliner()
 
         Selection.ClearSelection();
 
+        EditorEngine->GetUndoManager().RecordDelete(World, ActorsToDelete);
         World->BeginDeferredPickingBVHUpdate();
         for (AActor* Actor : ActorsToDelete)
         {

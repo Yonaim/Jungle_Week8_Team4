@@ -14,6 +14,7 @@
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Selection/SelectionManager.h"
 #include "Editor/PIE/PIETypes.h"
+#include "Editor/Undo/EditorUndoManager.h"
 
 #if STATS
 #endif
@@ -51,6 +52,7 @@ public:
     const FEditorSettings& GetSettings() const { return FEditorSettings::Get(); }
 
     FSelectionManager& GetSelectionManager() { return SelectionManager; }
+    FEditorUndoManager& GetUndoManager() { return UndoManager; }
 
     // 레이아웃에 위임
     const TArray<FEditorViewportClient*>& GetAllViewportClients() const { return ViewportLayout.GetAllViewportClients(); }
@@ -102,6 +104,7 @@ public:
 
 private:
     FSelectionManager SelectionManager;
+    FEditorUndoManager UndoManager;
     FEditorMainPanel MainPanel;
     FLevelViewportLayout ViewportLayout;
     FOverlayStatSystem OverlayStatSystem;
