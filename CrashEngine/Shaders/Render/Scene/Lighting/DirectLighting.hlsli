@@ -106,25 +106,19 @@ int ResolvePointShadowFaceIndex(float3 L)
     return (L.z >= 0.0f) ? 4 : 5;
 }
 
-int ResolvePointShadowFaceIndexForAxis(float3 L, uint AxisIndex)
+float GetPointShadowFactor(FLocalLight LocalLight, float3 WorldPos, float3 Normal, float4 PixelPos)
 {
-    switch (AxisIndex)
-    {
-    case 0: return (L.x >= 0.0f) ? 0 : 1;
-    case 1: return (L.y >= 0.0f) ? 2 : 3;
-    default: return (L.z >= 0.0f) ? 4 : 5;
-    }
-}
+    float3 L = WorldPos - LocalLight.Position;
+    if (dot(L, L) <= 1e-6f) return 1.0f;
 
-float GetPointShadowFactorForFace(FLocalLight LocalLight, float3 WorldPos, float3 Normal, float3 LightToPoint, float4 PixelPos, int FaceIndex)
-{
+    const int FaceIndex = ResolvePointShadowFaceIndex(L);
     const FShadowAtlasSample ShadowSample = DecodeShadowSample(LocalLight.ShadowSampleData[FaceIndex]);
     return GetShadowFactor(
         ShadowSample,
         LocalLight.ShadowViewProj[FaceIndex],
         WorldPos,
         Normal,
-        normalize(-LightToPoint),
+        normalize(L),
         LocalLight.ShadowBias,
         LocalLight.ShadowSlopeBias,
         LocalLight.ShadowNormalBias,
@@ -134,53 +128,6 @@ float GetPointShadowFactorForFace(FLocalLight LocalLight, float3 WorldPos, float
         SHADOW_PROJECTION_PERSPECTIVE,
         1.0f,
         LocalLight.AttenuationRadius);
-}
-
-float GetPointShadowFactor(FLocalLight LocalLight, float3 WorldPos, float3 Normal, float4 PixelPos)
-{
-    float3 BiasedWorldPos = WorldPos + Normal * LocalLight.ShadowNormalBias;
-    float3 L = BiasedWorldPos - LocalLight.Position;
-    if (dot(L, L) <= 1e-6f) return 1.0f;
-
-    const float3 AbsL = abs(L);
-
-    uint AxisOrder[3] = { 0, 1, 2 };
-    if (AbsL[AxisOrder[1]] > AbsL[AxisOrder[0]])
-    {
-        uint Temp = AxisOrder[0];
-        AxisOrder[0] = AxisOrder[1];
-        AxisOrder[1] = Temp;
-    }
-    if (AbsL[AxisOrder[2]] > AbsL[AxisOrder[1]])
-    {
-        uint Temp = AxisOrder[1];
-        AxisOrder[1] = AxisOrder[2];
-        AxisOrder[2] = Temp;
-    }
-    if (AbsL[AxisOrder[1]] > AbsL[AxisOrder[0]])
-    {
-        uint Temp = AxisOrder[0];
-        AxisOrder[0] = AxisOrder[1];
-        AxisOrder[1] = Temp;
-    }
-
-    const float WeightSum = max(AbsL[AxisOrder[0]] + AbsL[AxisOrder[1]] + AbsL[AxisOrder[2]], 1e-5f);
-    float Shadow = 0.0f;
-
-    [unroll]
-    for (uint WeightIndex = 0; WeightIndex < 3; ++WeightIndex)
-    {
-        const float AxisWeight = AbsL[AxisOrder[WeightIndex]] / WeightSum;
-        if (AxisWeight <= 1e-3f)
-        {
-            continue;
-        }
-
-        const int FaceIndex = ResolvePointShadowFaceIndexForAxis(L, AxisOrder[WeightIndex]);
-        Shadow += GetPointShadowFactorForFace(LocalLight, WorldPos, Normal, L, PixelPos, FaceIndex) * AxisWeight;
-    }
-
-    return Shadow;
 }
 
 float3 ReconstructWorldPositionFromSceneDepth(float2 UV)

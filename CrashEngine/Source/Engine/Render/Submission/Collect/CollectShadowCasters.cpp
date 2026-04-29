@@ -258,8 +258,7 @@ void FDrawCollector::ComputePointShadowMatrices(FLightProxy* Light)
     const FVector LightPos = LC.Position;
     const float NearZ = 1.0f;
     const float FarZ = std::max(NearZ + 0.001f, LC.AttenuationRadius);
-    constexpr float CubeFaceFovRadians = 91.0f * (3.141592f / 180.0f);
-    const FMatrix LightProjCube = FMatrix::MakePerspective(CubeFaceFovRadians, 1.0f, NearZ, FarZ);
+    const FMatrix LightProjCube = FMatrix::MakePerspective(0.5f * 3.141592f, 1.0f, NearZ, FarZ);
 
     struct FFaceDir
     {
