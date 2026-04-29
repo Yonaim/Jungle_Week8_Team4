@@ -21,6 +21,7 @@
 #include "Profiling/GPUProfiler.h"
 #include "Profiling/Stats.h"
 #include "Profiling/Timer.h"
+#include "Platform/Paths.h"
 
 // ==================== Render Execute ====================
 
@@ -143,6 +144,7 @@ void FRenderer::Create(HWND hWindow)
 
     // 렌더 전역 리소스 초기화
     FShaderManager::Get().Initialize(Device.GetDevice());
+    FResourceManager::Get().LoadFromFile(FPaths::ToUtf8(FPaths::ResourceFilePath()), Device.GetDevice());
     FConstantBufferCache::Get().Initialize(Device.GetDevice());
     FrameResources.Create(Device.GetDevice());
 

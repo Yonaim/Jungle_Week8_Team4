@@ -42,6 +42,7 @@ private:
     FEditorStatPanel StatPanel;
     bool bShowPanelList = false;
     bool bHideEditorWindows = false;
+    bool bRequestInitialConsoleFocus = true;
     bool bHasSavedUIVisibility = false;
     bool bSavedShowPanelList = false;
     FEditorSettings::FUIVisibility SavedUIVisibility{};

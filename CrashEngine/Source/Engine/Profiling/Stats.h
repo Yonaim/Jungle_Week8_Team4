@@ -130,6 +130,27 @@ private:
     static uint32 LastEvaluationCount;
 };
 
+struct FShadowCacheStats
+{
+    static void ResetFrame()
+    {
+        RedrawnLightCount = 0;
+        ReusedLightCount = 0;
+        SubmittedCasterCount = 0;
+    }
+    static void RecordRedrawnLight() { ++RedrawnLightCount; }
+    static void RecordReusedLight() { ++ReusedLightCount; }
+    static void RecordSubmittedCasters(uint32 InCasterCount) { SubmittedCasterCount += InCasterCount; }
+    static uint32 GetRedrawnLightCount() { return RedrawnLightCount; }
+    static uint32 GetReusedLightCount() { return ReusedLightCount; }
+    static uint32 GetSubmittedCasterCount() { return SubmittedCasterCount; }
+
+private:
+    static uint32 RedrawnLightCount;
+    static uint32 ReusedLightCount;
+    static uint32 SubmittedCasterCount;
+};
+
 // --- LOD Distribution Counter ---
 #if STATS
 // FLODStats는 엔진 처리에 필요한 데이터를 묶는 구조체입니다.

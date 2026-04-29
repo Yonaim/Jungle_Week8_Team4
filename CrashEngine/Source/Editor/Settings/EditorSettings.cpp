@@ -45,6 +45,7 @@ constexpr const char* CameraRotateSensitivity = "CameraRotateSensitivity";
 // Paths
 constexpr const char* DefaultSavePath = "DefaultSavePath";
 constexpr const char* RenderShadingPath = "RenderShadingPath";
+constexpr const char* MobilityAwareShadowCaching = "MobilityAwareShadowCaching";
 
 // Layout
 constexpr const char* Layout = "Layout";
@@ -97,6 +98,7 @@ void FEditorSettings::SaveToFile(const FString& Path) const
 
     JSON RenderingObj = Object();
     RenderingObj[Key::RenderShadingPath] = static_cast<int32>(RenderShadingPath);
+    RenderingObj[Key::MobilityAwareShadowCaching] = bMobilityAwareShadowCaching;
     Root[Key::Rendering] = RenderingObj;
 
     // Layout
@@ -233,6 +235,8 @@ void FEditorSettings::LoadFromFile(const FString& Path)
         JSON RenderingObj = Root[Key::Rendering];
         if (RenderingObj.hasKey(Key::RenderShadingPath))
             RenderShadingPath = static_cast<ERenderShadingPath>(RenderingObj[Key::RenderShadingPath].ToInt());
+        if (RenderingObj.hasKey(Key::MobilityAwareShadowCaching))
+            bMobilityAwareShadowCaching = RenderingObj[Key::MobilityAwareShadowCaching].ToBool();
     }
 
     // Layout

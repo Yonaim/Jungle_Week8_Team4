@@ -4,6 +4,7 @@
 #include "Serialization/Archive.h"
 #include "Render/Scene/Scene.h"
 #include "Render/Scene/Proxies/Light/LightProxy.h"
+#include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
 #include <cstring>
 
@@ -37,10 +38,18 @@ void ULightComponent::PostEditProperty(const char* PropertyName)
 
     FScene& Scene = Owner->GetWorld()->GetScene();
     Scene.MarkLightProxyDirty(LightProxy, ESceneProxyDirtyFlag::Lighting | ESceneProxyDirtyFlag::Shadow);
+    if (AActor* OwnerActor = Owner)
+    {
+        OwnerActor->MarkShadowMapDirty();
+    }
 }
 
 void ULightComponent::OnTransformDirty()
 {
+    if (AActor* OwnerActor = Owner)
+    {
+        OwnerActor->MarkShadowMapDirty();
+    }
     MarkRenderTransformDirty();
 }
 

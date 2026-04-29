@@ -90,6 +90,11 @@ public:
 
     bool IsVisible() const { return bVisible; }
     void SetVisible(bool Visible);
+    bool IsTransformLocked() const { return bTransformLocked; }
+    void SetTransformLocked(bool bLocked) { bTransformLocked = bLocked; }
+    bool IsShadowMapDirty() const { return bShadowMapDirty; }
+    void MarkShadowMapDirty() { bShadowMapDirty = true; }
+    void ClearShadowMapDirty() { bShadowMapDirty = false; }
 
     // Tick 필요 여부 — false면 Tick 호출 자체를 건너뜀 (StaticMesh 등)
     bool bNeedsTick = true;
@@ -120,4 +125,6 @@ protected:
     bool bQueuedForPartitionUpdate = false;
     bool bActorHasBegunPlay = false;
     bool bSuppressDefaultEditorHelperCreation = false;
+    bool bTransformLocked = false;
+    bool bShadowMapDirty = true;
 };

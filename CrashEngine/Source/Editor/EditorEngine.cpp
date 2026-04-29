@@ -19,6 +19,7 @@
 #include "Render/Execute/Registry/ViewModePassRegistry.h"
 #include "Render/Execute/Context/RenderCollectContext.h"
 #include "Render/Execute/Context/ViewMode/ViewModeSurfaces.h"
+#include "Render/Resources/Shadows/ShadowMapSettings.h"
 
 #include <algorithm>
 
@@ -106,6 +107,7 @@ void UEditorEngine::Init(FWindowsWindow* InWindow)
     FMaterialManager::Get().ScanMaterialAssets();
 
     FEditorSettings::Get().LoadFromFile(FEditorSettings::GetDefaultSettingsPath());
+    SetMobilityAwareShadowCachingEnabled(FEditorSettings::Get().bMobilityAwareShadowCaching);
     WarmUpEditorViewModeShaders(Renderer);
 
     MainPanel.Create(Window, Renderer, this);
@@ -551,6 +553,7 @@ void UEditorEngine::OnRenderSceneCleared()
 void UEditorEngine::Render(float DeltaTime)
 {
 #if STATS
+    FShadowCacheStats::ResetFrame();
     FStatManager::Get().TakeSnapshot();
     FGPUProfiler::Get().TakeSnapshot();
     FGPUProfiler::Get().BeginFrame();

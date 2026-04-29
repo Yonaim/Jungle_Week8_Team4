@@ -9,6 +9,9 @@ bool FLightCullStats::bEnabled = false;
 bool FLightCullStats::bHasSample = false;
 float FLightCullStats::LastGPUTimeMs = 0.0f;
 uint32 FLightCullStats::LastEvaluationCount = 0;
+uint32 FShadowCacheStats::RedrawnLightCount = 0;
+uint32 FShadowCacheStats::ReusedLightCount = 0;
+uint32 FShadowCacheStats::SubmittedCasterCount = 0;
 
 #if STATS
 uint32 FLODStats::LODCount[4] = { 0, 0, 0, 0 };

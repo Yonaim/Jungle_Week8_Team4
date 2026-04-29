@@ -2,6 +2,7 @@
 
 #include "Component/LightComponent.h"
 #include "Core/Logging/LogMacros.h"
+#include "GameFramework/AActor.h"
 #include "Render/Execute/Context/Scene/SceneView.h"
 #include "Render/Resources/Bindings/RenderBindingSlots.h"
 #include "Render/Resources/Buffers/ConstantBufferData.h"
@@ -73,7 +74,12 @@ FShadowMapPass::~FShadowMapPass()
 
 bool FShadowMapPass::UpdateLightShadowAllocation(FLightProxy& Light, ID3D11Device* Device)
 {
-    return ShadowAllocationMap.UpdateLightShadow(Light, Device, AtlasPool);
+    const bool bUpdated = ShadowAllocationMap.UpdateLightShadow(Light, Device, AtlasPool);
+    if (bUpdated && Light.Owner && Light.Owner->GetOwner())
+    {
+        Light.Owner->GetOwner()->ClearShadowMapDirty();
+    }
+    return bUpdated;
 }
 
 void FShadowMapPass::ReleaseShadowAtlasResources()
@@ -388,6 +394,11 @@ PSMCameraState.bLoggedRedrawThisFrame = GetShadowMapMethod() == EShadowMapMethod
     for (FLightProxy* Light : VisibleLights)
     {
         if (!Light || !Light->bCastShadow)
+        {
+            continue;
+        }
+
+        if (IsMobilityAwareShadowCachingEnabled() && !Light->bShadowRedrawThisFrame)
         {
             continue;
         }

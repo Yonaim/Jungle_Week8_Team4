@@ -4,6 +4,7 @@
 #include "Editor/Settings/EditorSettings.h"
 #include "Profiling/Stats.h"
 #include "Profiling/GPUProfiler.h"
+#include "Render/Resources/Shadows/ShadowMapSettings.h"
 #include "ImGui/imgui.h"
 
 #include <algorithm>
@@ -95,6 +96,17 @@ void FEditorStatPanel::Render(float DeltaTime)
     ImGui::Text("Draw Calls: %u", DrawCalls);
     ImGui::Text("LOD0: %u  LOD1: %u  LOD2: %u  LOD3: %u",
                 FLODStats::GetLOD0(), FLODStats::GetLOD1(), FLODStats::GetLOD2(), FLODStats::GetLOD3());
+    const uint32 ShadowRedrawnLights = FShadowCacheStats::GetRedrawnLightCount();
+    const uint32 ShadowReusedLights = FShadowCacheStats::GetReusedLightCount();
+    const uint32 TotalShadowTrackedLights = ShadowRedrawnLights + ShadowReusedLights;
+    const float ShadowReuseRate = TotalShadowTrackedLights > 0
+        ? (static_cast<float>(ShadowReusedLights) / static_cast<float>(TotalShadowTrackedLights)) * 100.0f
+        : 0.0f;
+    ImGui::Text("Mobility-aware Shadow Caching: %s", IsMobilityAwareShadowCachingEnabled() ? "On" : "Off");
+    ImGui::Text("Shadow Redraw Lights: %u", ShadowRedrawnLights);
+    ImGui::Text("Shadow Reused Lights: %u (%.1f%%)", ShadowReusedLights, ShadowReuseRate);
+    ImGui::Text("Submitted Shadow Casters: %u", FShadowCacheStats::GetSubmittedCasterCount());
+    ImGui::TextDisabled("Compare these values and ShadowMap CPU/GPU timings with caching On/Off.");
     ImGui::Separator();
 
     // 남은 공간을 CPU/GPU 테이블이 반씩 사용

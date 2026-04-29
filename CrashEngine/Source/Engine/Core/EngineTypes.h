@@ -107,6 +107,19 @@ enum class EViewModeIndex
     SceneDepth
 };
 
+enum class ELightMobility : int32
+{
+    Static = 0,
+    Stationary = 1,
+    Movable = 2,
+};
+
+enum class EPrimitiveMobility : int32
+{
+    Static = 0,
+    Movable = 1,
+};
+
 // ============================================================
 // EEngineShowFlags — 렌더링 요소별 On/Off 비트 플래그
 // ============================================================

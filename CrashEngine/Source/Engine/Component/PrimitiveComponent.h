@@ -41,6 +41,8 @@ public:
     inline bool IsVisibleInEditor() const { return bVisibleInEditor; }
     inline bool IsVisibleInGame() const { return bVisibleInGame; }
     inline bool IsEditorHelper() const { return bIsEditorHelper; }
+    EPrimitiveMobility GetMobility() const { return Mobility; }
+    void SetMobility(EPrimitiveMobility InMobility) { Mobility = InMobility; }
 
     bool ShouldRenderInWorld(EWorldType WorldType) const;
     bool ShouldRenderInCurrentWorld() const;
@@ -152,6 +154,7 @@ protected:
     bool bVisibleInEditor = true;
     bool bVisibleInGame = true;
     bool bIsEditorHelper = false;
+    EPrimitiveMobility Mobility = EPrimitiveMobility::Static;
     FPrimitiveProxy* SceneProxy = nullptr;
 
     FOctree* OctreeNode = nullptr;

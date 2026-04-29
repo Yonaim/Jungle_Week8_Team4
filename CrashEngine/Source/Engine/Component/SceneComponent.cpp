@@ -1,6 +1,7 @@
 ﻿// 컴포넌트 영역의 세부 동작을 구현합니다.
 #include "SceneComponent.h"
 #include "Object/ObjectFactory.h"
+#include "GameFramework/AActor.h"
 #include <GameFramework/World.h>
 #include "Serialization/Archive.h"
 
@@ -20,6 +21,28 @@ static void NotifyOctreeTransformChanged(USceneComponent* Comp)
         return;
 
     World->UpdateActorInOctree(OwnerActor);
+}
+
+bool CanEditOwnerTransform(const USceneComponent* Comp)
+{
+    const AActor* OwnerActor = Comp ? Comp->GetOwner() : nullptr;
+    return OwnerActor == nullptr || !OwnerActor->IsTransformLocked();
+}
+
+void NotifyShadowMapTransformChanged(USceneComponent* Comp)
+{
+    if (!Comp)
+    {
+        return;
+    }
+
+    AActor* OwnerActor = Comp->GetOwner();
+    if (!OwnerActor)
+    {
+        return;
+    }
+
+    OwnerActor->MarkShadowMapDirty();
 }
 
 void USceneComponent::AttachToComponent(USceneComponent* InParent)
@@ -218,46 +241,76 @@ void USceneComponent::AddWorldOffset(const FVector& WorldDelta)
 
 void USceneComponent::SetRelativeLocation(const FVector& NewLocation)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     RelativeTransform.Location = NewLocation;
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
 void USceneComponent::SetRelativeRotation(const FRotator& NewRotation)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     CachedEditRotator = NewRotation.GetClamped();
     bCachedEulerDirty = false;
     RelativeTransform.SetRotation(NewRotation);
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
 void USceneComponent::SetRelativeRotation(const FQuat& NewRotation)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     bCachedEulerDirty = true;
     RelativeTransform.SetRotation(NewRotation);
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
 void USceneComponent::SetRelativeRotation(const FVector& EulerRotation)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     FRotator Rot(EulerRotation);
     CachedEditRotator = Rot;
     bCachedEulerDirty = false;
     RelativeTransform.SetRotation(Rot);
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
 
 void USceneComponent::AddLocalRotation(const FQuat& DeltaQuat)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     // Quat 합성으로 누적 — Euler 라운드트립이 없어 짐벌락에 안전.
     // 곱 순서: 로컬 축 기준 회전이므로 Current * Delta.
     RelativeTransform.SetRotation(RelativeTransform.Rotation * DeltaQuat);
     bCachedEulerDirty = true;
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
@@ -268,8 +321,14 @@ void USceneComponent::AddLocalRotation(const FRotator& DeltaRotator)
 
 void USceneComponent::SetRelativeScale(const FVector& NewScale)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     RelativeTransform.Scale = NewScale;
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 
@@ -306,10 +365,16 @@ FRotator& USceneComponent::GetCachedEditRotator()
 
 void USceneComponent::SetRelativeRotationWithEulerHint(const FQuat& NewQuat, const FRotator& EulerHint)
 {
+    if (!CanEditOwnerTransform(this))
+    {
+        return;
+    }
+
     CachedEditRotator = EulerHint.GetClamped();
     bCachedEulerDirty = false;
     RelativeTransform.SetRotation(NewQuat);
     MarkTransformDirty();
+    NotifyShadowMapTransformChanged(this);
     NotifyOctreeTransformChanged(this);
 }
 

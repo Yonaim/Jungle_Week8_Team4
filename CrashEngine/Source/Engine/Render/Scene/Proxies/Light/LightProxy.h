@@ -53,6 +53,8 @@ public:
     FMatrix                  LightViewProj;
     bool                     bCastShadow      = false;
     uint32                   ShadowResolution = GetShadowResolutionValue(GDefaultShadowResolution);
+    bool                     bShadowRedrawThisFrame = true;
+    bool                     bHasMovableShadowCasterThisFrame = false;
 
     float ShadowBias       = 0.0f;
     float ShadowSlopeBias  = 0.0f;

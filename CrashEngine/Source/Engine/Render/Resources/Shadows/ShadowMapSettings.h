@@ -10,6 +10,7 @@ enum class EShadowMapMethod : uint32
 };
 
 inline EShadowMapMethod GShadowMapMethod = EShadowMapMethod::Standard;
+inline bool GEnableMobilityAwareShadowCaching = false;
 
 inline EShadowMapMethod GetShadowMapMethod()
 {
@@ -19,6 +20,16 @@ inline EShadowMapMethod GetShadowMapMethod()
 inline void SetShadowMapMethod(EShadowMapMethod InMethod)
 {
     GShadowMapMethod = InMethod;
+}
+
+inline bool IsMobilityAwareShadowCachingEnabled()
+{
+    return GEnableMobilityAwareShadowCaching;
+}
+
+inline void SetMobilityAwareShadowCachingEnabled(bool bEnabled)
+{
+    GEnableMobilityAwareShadowCaching = bEnabled;
 }
 
 inline const char* GetShadowMapMethodName(EShadowMapMethod InMethod)

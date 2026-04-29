@@ -1,11 +1,16 @@
 #include "Render/Submission/Collect/DrawCollector.h"
 
 #include "Collision/SpatialPartition.h"
+#include "Component/LightComponent.h"
+#include "Component/PrimitiveComponent.h"
 #include "GameFramework/World.h"
+#include "GameFramework/AActor.h"
 #include "Render/Execute/Context/Scene/SceneView.h"
 #include "Render/Resources/Shadows/ShadowMapSettings.h"
+#include "Render/Scene/Proxies/Primitive/PrimitiveProxy.h"
 #include "Render/Submission/Atlas/ShadowAtlasTypes.h"
 #include "Render/Scene/Proxies/Light/LightProxy.h"
+#include "Profiling/Stats.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -77,6 +82,114 @@ float SnapToTexel(float Value, float WorldUnitsPerTexel)
     }
 
     return std::floor(Value / WorldUnitsPerTexel + 0.5f) * WorldUnitsPerTexel;
+}
+
+AActor* GetLightOwnerActor(const FLightProxy* Light)
+{
+    return (Light && Light->Owner) ? Light->Owner->GetOwner() : nullptr;
+}
+
+ELightMobility ResolveLightShadowMobility(const FLightProxy* Light)
+{
+    if (!Light || !Light->Owner)
+    {
+        return ELightMobility::Movable;
+    }
+
+    const AActor* OwnerActor = Light->Owner->GetOwner();
+    if (!OwnerActor || !OwnerActor->IsTransformLocked())
+    {
+        return ELightMobility::Movable;
+    }
+
+    const ELightMobility ConfiguredMobility = Light->Owner->GetMobility();
+    return (ConfiguredMobility == ELightMobility::Movable) ? ELightMobility::Stationary : ConfiguredMobility;
+}
+
+EPrimitiveMobility ResolvePrimitiveShadowMobility(const FPrimitiveProxy* Proxy)
+{
+    if (!Proxy || !Proxy->Owner)
+    {
+        return EPrimitiveMobility::Movable;
+    }
+
+    const AActor* OwnerActor = Proxy->Owner->GetOwner();
+    if (!OwnerActor || !OwnerActor->IsTransformLocked())
+    {
+        return EPrimitiveMobility::Movable;
+    }
+
+    return Proxy->Owner->GetMobility();
+}
+
+bool IsCameraDrivenDirectionalShadow(const FLightProxy* Light)
+{
+    return Light &&
+           Light->LightProxyInfo.LightType == static_cast<uint32>(ELightType::Directional) &&
+           GetShadowMapMethod() != EShadowMapMethod::Standard;
+}
+
+bool ShouldRedrawShadowThisFrame(const FLightProxy* Light, bool bHasMovableCaster)
+{
+    if (!Light)
+    {
+        return false;
+    }
+
+    if (!IsMobilityAwareShadowCachingEnabled() || IsCameraDrivenDirectionalShadow(Light))
+    {
+        return true;
+    }
+
+    const AActor* LightActor = GetLightOwnerActor(Light);
+    if (!LightActor)
+    {
+        return true;
+    }
+
+    switch (ResolveLightShadowMobility(Light))
+    {
+    case ELightMobility::Static:
+        return LightActor->IsShadowMapDirty();
+    case ELightMobility::Stationary:
+        return LightActor->IsShadowMapDirty() || bHasMovableCaster;
+    case ELightMobility::Movable:
+    default:
+        return true;
+    }
+}
+
+void FilterShadowCastersForLight(FLightProxy* Light, const TArray<FPrimitiveProxy*>& Candidates, TArray<FPrimitiveProxy*>& OutCasters, bool& bOutHasMovableCaster)
+{
+    OutCasters.clear();
+    bOutHasMovableCaster = false;
+
+    if (!Light)
+    {
+        return;
+    }
+
+    const ELightMobility LightMobility = ResolveLightShadowMobility(Light);
+    for (FPrimitiveProxy* Proxy : Candidates)
+    {
+        if (!Proxy)
+        {
+            continue;
+        }
+
+        const EPrimitiveMobility PrimitiveMobility = ResolvePrimitiveShadowMobility(Proxy);
+        if (PrimitiveMobility == EPrimitiveMobility::Movable)
+        {
+            bOutHasMovableCaster = true;
+        }
+
+        if (LightMobility == ELightMobility::Static && PrimitiveMobility == EPrimitiveMobility::Movable)
+        {
+            continue;
+        }
+
+        OutCasters.push_back(Proxy);
+    }
 }
 } // namespace
 
@@ -479,9 +592,8 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
         {
             continue;
         }
-
-        Light->ClearShadowData();
-        Light->VisibleShadowCasters.clear();
+        Light->bShadowRedrawThisFrame = true;
+        Light->bHasMovableShadowCasterThisFrame = false;
 
         if (!Light->bCastShadow)
         {
@@ -489,6 +601,7 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
         }
 
         FLightProxyInfo& LC = Light->LightProxyInfo;
+        TArray<FPrimitiveProxy*> CandidateCasters;
         if (LC.LightType == static_cast<uint32>(ELightType::Directional))
         {
             ComputeDirectionalShadowMatrices(Light, World, SceneView);
@@ -496,23 +609,36 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
 
             const FConvexVolume& CasterQueryFrustum =
                 GetShadowMapMethod() == EShadowMapMethod::PSM ? SceneView->FrustumVolume : Light->ShadowViewFrustum;
-            World->GetPartition().QueryFrustumAllProxies(CasterQueryFrustum, Light->VisibleShadowCasters);
-            continue;
+            World->GetPartition().QueryFrustumAllProxies(CasterQueryFrustum, CandidateCasters);
         }
-
-        if (LC.LightType == static_cast<uint32>(ELightType::Spot))
+        else if (LC.LightType == static_cast<uint32>(ELightType::Spot))
         {
             ComputeSpotShadowMatrices(Light);
             Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
-            World->GetPartition().QueryFrustumAllProxies(Light->ShadowViewFrustum, Light->VisibleShadowCasters);
-            continue;
+            World->GetPartition().QueryFrustumAllProxies(Light->ShadowViewFrustum, CandidateCasters);
         }
-
-        if (LC.LightType == static_cast<uint32>(ELightType::Point))
+        else if (LC.LightType == static_cast<uint32>(ELightType::Point))
         {
             ComputePointShadowMatrices(Light);
             Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
-            World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, Light->VisibleShadowCasters);
+            World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, CandidateCasters);
         }
+
+        TArray<FPrimitiveProxy*> FilteredCasters;
+        bool bHasMovableCaster = false;
+        FilterShadowCastersForLight(Light, CandidateCasters, FilteredCasters, bHasMovableCaster);
+
+        Light->bHasMovableShadowCasterThisFrame = bHasMovableCaster;
+        Light->bShadowRedrawThisFrame = ShouldRedrawShadowThisFrame(Light, bHasMovableCaster);
+        if (!Light->bShadowRedrawThisFrame)
+        {
+            FShadowCacheStats::RecordReusedLight();
+            continue;
+        }
+
+        Light->ClearShadowData();
+        Light->VisibleShadowCasters = std::move(FilteredCasters);
+        FShadowCacheStats::RecordRedrawnLight();
+        FShadowCacheStats::RecordSubmittedCasters(static_cast<uint32>(Light->VisibleShadowCasters.size()));
     }
 }

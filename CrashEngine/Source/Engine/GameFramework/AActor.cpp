@@ -224,6 +224,11 @@ FVector AActor::GetActorLocation() const
 
 void AActor::SetActorLocation(const FVector& NewLocation)
 {
+    if (bTransformLocked)
+    {
+        return;
+    }
+
     PendingActorLocation = NewLocation;
 
     if (RootComponent)
@@ -234,6 +239,11 @@ void AActor::SetActorLocation(const FVector& NewLocation)
 
 void AActor::AddActorWorldOffset(const FVector& Delta)
 {
+    if (bTransformLocked)
+    {
+        return;
+    }
+
     if (RootComponent)
     {
         RootComponent->AddWorldOffset(Delta);
@@ -297,6 +307,11 @@ FRotator AActor::GetActorRotation() const
 
 void AActor::SetActorRotation(const FRotator& NewRotation)
 {
+    if (bTransformLocked)
+    {
+        return;
+    }
+
     if (RootComponent)
     {
         RootComponent->SetRelativeRotation(NewRotation);
@@ -305,6 +320,11 @@ void AActor::SetActorRotation(const FRotator& NewRotation)
 
 void AActor::SetActorRotation(const FVector& EulerRotation)
 {
+    if (bTransformLocked)
+    {
+        return;
+    }
+
     if (RootComponent)
     {
         RootComponent->SetRelativeRotation(EulerRotation);
@@ -318,6 +338,11 @@ FVector AActor::GetActorScale() const
 
 void AActor::SetActorScale(const FVector& NewScale)
 {
+    if (bTransformLocked)
+    {
+        return;
+    }
+
     if (RootComponent)
     {
         RootComponent->SetRelativeScale(NewScale);
@@ -340,6 +365,8 @@ void AActor::Serialize(FArchive& Ar)
     // 소유 포인터(OwnedComponents/RootComponent/Outer)는 직렬화 제외 — 복제 단계에서 재구성.
     Ar << bVisible;
     Ar << bNeedsTick;
+    Ar << bTransformLocked;
+    Ar << bShadowMapDirty;
 }
 
 // SceneComponent 서브트리를 재귀 복제. 부모 → 자식 순으로 만들되,

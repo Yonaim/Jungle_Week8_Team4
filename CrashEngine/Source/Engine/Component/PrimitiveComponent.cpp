@@ -54,6 +54,7 @@ void UPrimitiveComponent::Serialize(FArchive& Ar)
     Ar << bVisibleInEditor;
     Ar << bVisibleInGame;
     Ar << bIsEditorHelper;
+    Ar << Mobility;
 }
 
 void UPrimitiveComponent::SetVisibility(bool bNewVisible)
@@ -169,6 +170,7 @@ void UPrimitiveComponent::GetEditableProperties(TArray<FPropertyDescriptor>& Out
     OutProps.push_back({ "Visible In Editor", EPropertyType::Bool, &bVisibleInEditor });
     OutProps.push_back({ "Visible In Game", EPropertyType::Bool, &bVisibleInGame });
     OutProps.push_back({ "Is Editor Helper", EPropertyType::Bool, &bIsEditorHelper });
+    OutProps.push_back({ "Primitive Mobility", EPropertyType::Int, &Mobility, 0.0f, 1.0f, 1.0f });
 }
 
 void UPrimitiveComponent::PostEditProperty(const char* PropertyName)
@@ -184,6 +186,14 @@ void UPrimitiveComponent::PostEditProperty(const char* PropertyName)
     else if (strcmp(PropertyName, "Visible In Editor") == 0 || strcmp(PropertyName, "Visible In Game") == 0 || strcmp(PropertyName, "Is Editor Helper") == 0)
     {
         MarkRenderVisibilityDirty();
+    }
+    else if (strcmp(PropertyName, "Primitive Mobility") == 0)
+    {
+        Mobility = static_cast<EPrimitiveMobility>(std::clamp(static_cast<int32>(Mobility), 0, 1));
+        if (AActor* OwnerActor = GetOwner())
+        {
+            OwnerActor->MarkShadowMapDirty();
+        }
     }
 }
 

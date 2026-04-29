@@ -17,6 +17,7 @@
 #include "GameFramework/PointLightActor.h"
 #include "GameFramework/SpotLightActor.h"
 #include "Engine/Platform/Paths.h"
+#include "Render/Resources/Shadows/ShadowMapSettings.h"
 
 #define SEPARATOR()     \
     ;                   \
@@ -120,6 +121,13 @@ void FEditorControlPanel::Render(float DeltaTime)
     float CameraSpeed = FEditorSettings::Get().CameraSpeed;
     if (ImGui::DragFloat("Camera Speed", &CameraSpeed, 0.1f, 0.1f, 200.0f, "%.2f"))
         FEditorSettings::Get().CameraSpeed = Clamp(CameraSpeed, 0.1f, 200.0f);
+
+    bool bMobilityAwareShadowCaching = FEditorSettings::Get().bMobilityAwareShadowCaching;
+    if (ImGui::Checkbox("Mobility-aware Shadow Caching", &bMobilityAwareShadowCaching))
+    {
+        FEditorSettings::Get().bMobilityAwareShadowCaching = bMobilityAwareShadowCaching;
+        SetMobilityAwareShadowCachingEnabled(bMobilityAwareShadowCaching);
+    }
 
     float OrthoWidth = Camera->GetOrthoWidth();
     if (ImGui::DragFloat("Ortho Width", &OrthoWidth, 0.1f, 0.1f, 1000.0f))

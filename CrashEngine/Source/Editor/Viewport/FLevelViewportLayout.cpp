@@ -823,6 +823,15 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
                     PendingPilotContextViewport->PilotSelectedActor(PendingPilotContextActor);
                     ImGui::CloseCurrentPopup();
                 }
+
+                ImGui::Separator();
+
+                bool bTransformLock = PendingPilotContextActor->IsTransformLocked();
+                if (ImGui::Checkbox("Lock Actor Movement", &bTransformLock))
+                {
+                    PendingPilotContextActor->SetTransformLocked(bTransformLock);
+                    PendingPilotContextActor->MarkShadowMapDirty();
+                }
             }
 
             const bool bCanStopPiloting = PendingPilotContextViewport && PendingPilotContextViewport->IsPilotingActor();

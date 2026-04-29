@@ -154,6 +154,8 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
     Window = InWindow;
     EditorEngine = InEditorEngine;
     GLog = &LogBuffer;
+    FEditorSettings::Get().UI.bConsole = true;
+    FEditorSettings::Get().UI.bStat = false;
 
     IO.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\malgun.ttf", 18.0f, nullptr, IO.Fonts->GetGlyphRangesKorean());
     IO.FontGlobalScale = 1.05f;
@@ -325,8 +327,13 @@ void FEditorMainPanel::Render(float DeltaTime)
 
     if (!bHideEditorWindows && Settings.UI.bConsole)
     {
+        if (bRequestInitialConsoleFocus)
+        {
+            ImGui::SetNextWindowFocus();
+        }
         SCOPE_STAT_CAT("ConsolePanel.Render", "5_UI");
         ConsolePanel.Render(DeltaTime);
+        bRequestInitialConsoleFocus = false;
     }
 
     if (!bHideEditorWindows && Settings.UI.bControl)

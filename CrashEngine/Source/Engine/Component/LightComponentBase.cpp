@@ -4,6 +4,7 @@
 #include "Serialization/Archive.h"
 
 #include <algorithm>
+#include <cstring>
 
 IMPLEMENT_ABSTRACT_CLASS(ULightComponentBase, USceneComponent)
 
@@ -26,6 +27,7 @@ void ULightComponentBase::Serialize(FArchive& Ar)
     Ar << ShadowNormalBias;
     Ar << ShadowSharpen;
     Ar << ShadowESMExponent;
+    Ar << Mobility;
 }
 
 void ULightComponentBase::GetEditableProperties(TArray<FPropertyDescriptor>& OutProps)
@@ -35,6 +37,7 @@ void ULightComponentBase::GetEditableProperties(TArray<FPropertyDescriptor>& Out
     OutProps.push_back({ "LightColor", EPropertyType::Color4, &LightColor });
     OutProps.push_back({ "bAffectsWorld", EPropertyType::Bool, &bAffectsWorld });
     OutProps.push_back({ "Cast Shadows", EPropertyType::Bool, &bCastShadows });
+    OutProps.push_back({ "Light Mobility", EPropertyType::Int, &Mobility, 0.0f, 2.0f, 1.0f });
     OutProps.push_back({ "Depth Bias", EPropertyType::Float, &ShadowBias, 0.0f, 0.1f, 0.0001f });
     OutProps.push_back({ "Slope Bias", EPropertyType::Float, &ShadowSlopeBias, 0.0f, 8.0f, 0.01f });
     OutProps.push_back({ "Normal Bias", EPropertyType::Float, &ShadowNormalBias, 0.0f, 8.0f, 0.01f });
@@ -50,5 +53,9 @@ void ULightComponentBase::PostEditProperty(const char* PropertyName)
     ShadowNormalBias = std::max(0.0f, ShadowNormalBias);
     ShadowSharpen = std::clamp(ShadowSharpen, 0.0f, 0.99f);
     ShadowESMExponent = std::max(0.01f, ShadowESMExponent);
+    if (strcmp(PropertyName, "Light Mobility") == 0)
+    {
+        Mobility = static_cast<ELightMobility>(std::clamp(static_cast<int32>(Mobility), 0, 2));
+    }
     USceneComponent::PostEditProperty(PropertyName);
 }

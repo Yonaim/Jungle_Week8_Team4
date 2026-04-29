@@ -34,6 +34,7 @@ public:
     float PerspCamFarClip = 1000.0f;
 
     ERenderShadingPath RenderShadingPath = ERenderShadingPath::Forward;
+    bool bMobilityAwareShadowCaching = false;
 
     // File paths
     FString DefaultSavePath = FPaths::ToUtf8(FPaths::SceneDir());

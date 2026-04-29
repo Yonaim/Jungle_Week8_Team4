@@ -245,6 +245,34 @@ static FString GetEditorFriendlyPropertyName(const FString& RawName)
     return Result;
 }
 
+static const char* GetPrimitiveMobilityLabel(EPrimitiveMobility Mobility)
+{
+    switch (Mobility)
+    {
+    case EPrimitiveMobility::Static:
+        return "Static";
+    case EPrimitiveMobility::Movable:
+        return "Movable";
+    default:
+        return "Unknown";
+    }
+}
+
+static const char* GetLightMobilityLabel(ELightMobility Mobility)
+{
+    switch (Mobility)
+    {
+    case ELightMobility::Static:
+        return "Static";
+    case ELightMobility::Stationary:
+        return "Stationary";
+    case ELightMobility::Movable:
+        return "Movable";
+    default:
+        return "Unknown";
+    }
+}
+
 static bool BeginEditorSection(const char* Label, ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_DefaultOpen)
 {
     return ImGui::CollapsingHeader(Label, Flags);
@@ -1476,7 +1504,54 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
     case EPropertyType::Int:
     {
         int32* Val = static_cast<int32*>(Prop.ValuePtr);
-        bChanged = ImGui::DragInt(WidgetLabel.c_str(), Val);
+        if (Prop.Name == "Primitive Mobility")
+        {
+            int32 Current = std::clamp(*Val, 0, 1);
+            const char* Preview = GetPrimitiveMobilityLabel(static_cast<EPrimitiveMobility>(Current));
+            if (ImGui::BeginCombo(WidgetLabel.c_str(), Preview))
+            {
+                for (int32 Option = 0; Option <= 1; ++Option)
+                {
+                    const bool bSelected = (Current == Option);
+                    if (ImGui::Selectable(GetPrimitiveMobilityLabel(static_cast<EPrimitiveMobility>(Option)), bSelected))
+                    {
+                        *Val = Option;
+                        bChanged = true;
+                    }
+                    if (bSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+        else if (Prop.Name == "Light Mobility")
+        {
+            int32 Current = std::clamp(*Val, 0, 2);
+            const char* Preview = GetLightMobilityLabel(static_cast<ELightMobility>(Current));
+            if (ImGui::BeginCombo(WidgetLabel.c_str(), Preview))
+            {
+                for (int32 Option = 0; Option <= 2; ++Option)
+                {
+                    const bool bSelected = (Current == Option);
+                    if (ImGui::Selectable(GetLightMobilityLabel(static_cast<ELightMobility>(Option)), bSelected))
+                    {
+                        *Val = Option;
+                        bChanged = true;
+                    }
+                    if (bSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        }
+        else
+        {
+            bChanged = ImGui::DragInt(WidgetLabel.c_str(), Val);
+        }
         break;
     }
     case EPropertyType::Float:

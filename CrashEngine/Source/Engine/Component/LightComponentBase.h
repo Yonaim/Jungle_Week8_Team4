@@ -30,6 +30,8 @@ public:
     float GetShadowNormalBias() const { return ShadowNormalBias; }
     float GetShadowSharpen() const { return ShadowSharpen; }
     float GetShadowESMExponent() const { return ShadowESMExponent; }
+    ELightMobility GetMobility() const { return Mobility; }
+    void SetMobility(ELightMobility InMobility) { Mobility = InMobility; }
     void SetShadowResolution(EShadowResolution InResolution) { ShadowResolution = InResolution; }
     void SetShadowResolution(uint32 InResolution) { ShadowResolution = RoundShadowResolutionToTier(InResolution); }
 
@@ -44,4 +46,5 @@ protected:
     float ShadowNormalBias = 0.0f;
     float ShadowSharpen = 0.0f;
     float ShadowESMExponent = 40.0f;
+    ELightMobility Mobility = ELightMobility::Stationary;
 };
