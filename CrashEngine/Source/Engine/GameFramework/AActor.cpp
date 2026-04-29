@@ -43,13 +43,22 @@ AActor::~AActor()
 UActorComponent* AActor::AddComponentByClass(UClass* Class)
 {
     if (!Class)
+    {
+        UE_LOG(Actor, Warning, "AddComponentByClass failed because class was null. Actor=%s", GetFName().ToString().c_str());
         return nullptr;
+    }
     if (Class->HasAnyClassFlags(CF_Abstract))
+    {
+        UE_LOG(Actor, Warning, "AddComponentByClass rejected abstract class. Actor=%s Class=%s", GetFName().ToString().c_str(), Class->GetName());
         return nullptr;
+    }
 
     UObject* Obj = FObjectFactory::Get().Create(Class->GetName(), this);
     if (!Obj)
+    {
+        UE_LOG(Actor, Error, "AddComponentByClass failed to create object. Actor=%s Class=%s", GetFName().ToString().c_str(), Class->GetName());
         return nullptr;
+    }
 
     UActorComponent* Comp = Cast<UActorComponent>(Obj);
     if (!Comp)
@@ -63,6 +72,7 @@ UActorComponent* AActor::AddComponentByClass(UClass* Class)
     bPrimitiveCacheDirty = true;
     Comp->CreateRenderState();
     MarkPickingDirty();
+    UE_LOG(Actor, Info, "Component added. Actor=%s Component=%s", GetFName().ToString().c_str(), Comp->GetClass()->GetName());
     return Comp;
 }
 
@@ -80,13 +90,20 @@ void AActor::RegisterComponent(UActorComponent* Comp)
         bPrimitiveCacheDirty = true;
         MarkPickingDirty();
         Comp->CreateRenderState();
+        UE_LOG(Actor, Info, "Component registered. Actor=%s Component=%s", GetFName().ToString().c_str(), Comp->GetClass()->GetName());
     }
 }
 
 void AActor::RemoveComponent(UActorComponent* Component)
 {
     if (!Component)
+    {
+        UE_LOG(Actor, Warning, "RemoveComponent ignored because component was null. Actor=%s", GetFName().ToString().c_str());
         return;
+    }
+
+    const FString ComponentName = Component->GetClass()->GetName();
+    UE_LOG(Actor, Info, "Component removal requested. Actor=%s Component=%s", GetFName().ToString().c_str(), ComponentName.c_str());
 
     Component->PrimaryComponentTick.UnRegisterTickFunction();
 
@@ -107,6 +124,7 @@ void AActor::RemoveComponent(UActorComponent* Component)
         RootComponent = nullptr;
 
     UObjectManager::Get().DestroyObject(Component);
+    UE_LOG(Actor, Info, "Component removed. Actor=%s Component=%s", GetFName().ToString().c_str(), ComponentName.c_str());
 }
 
 void AActor::EnsureDefaultEditorHelperTextComponent()

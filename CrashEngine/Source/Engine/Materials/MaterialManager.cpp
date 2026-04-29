@@ -170,7 +170,6 @@ void FMaterialManager::ScanMaterialAssets()
     }
 }
 
-
 UMaterial* FMaterialManager::GetOrCreateStaticMeshMaterial(const FString& MatFilePath)
 {
     return GetOrCreateMaterial(NormalizeCacheKey(MatFilePath));

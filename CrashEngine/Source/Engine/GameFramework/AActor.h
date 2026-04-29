@@ -4,6 +4,7 @@
 #include "Object/ObjectFactory.h"
 #include "Component/SceneComponent.h"
 #include "Core/TickFunction.h"
+#include "Core/Logging/LogMacros.h"
 
 class FArchive;
 
@@ -52,6 +53,7 @@ public:
         bPrimitiveCacheDirty = true;
         Comp->CreateRenderState();
         MarkPickingDirty();
+        UE_LOG(Actor, Info, "Component added. Actor=%s Component=%s", GetFName().ToString().c_str(), Comp->GetClass()->GetName());
         return Comp;
     }
 

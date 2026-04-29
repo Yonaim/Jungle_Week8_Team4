@@ -17,6 +17,7 @@
 #include "Component/PrimitiveComponent.h"
 #include "Component/StaticMeshComponent.h"
 #include "Component/SceneComponent.h"
+#include "Component/UUIDTextRenderComponent.h"
 #include "Core/PropertyTypes.h"
 #include "Core/ClassTypes.h"
 #include "Resource/ResourceManager.h"
@@ -26,6 +27,7 @@
 #include "Mesh/ObjManager.h"
 #include "Mesh/StaticMesh.h"
 #include "Platform/Paths.h"
+#include "Core/Logging/LogMacros.h"
 
 #include <Windows.h>
 #include <commdlg.h>
@@ -606,7 +608,13 @@ void FEditorDetailsPanel::RenderComponentTree(AActor* Actor)
     for (UClass* Cls : AllClasses)
     {
         if (Cls->IsA(UActorComponent::StaticClass()) && !Cls->HasAnyClassFlags(CF_Abstract))
+        {
+            if (Cls == UUUIDTextRenderComponent::StaticClass())
+            {
+                continue;
+            }
             ComponentClasses.push_back(Cls);
+        }
     }
 
     static int SelectedIndex = 0;
@@ -729,6 +737,28 @@ void FEditorDetailsPanel::RenderComponentProperties(AActor* Actor)
     (void)Actor;
     const FString ComponentLabel = BuildComponentDisplayLabel(SelectedComponent);
     ImGui::Text("Component: %s", ComponentLabel.c_str());
+    ImGui::Separator();
+
+    if (ImGui::Button("Delete Component"))
+    {
+        if (SelectedComponent->IsA<USceneComponent>())
+        {
+            USceneComponent* SceneComponent = static_cast<USceneComponent*>(SelectedComponent);
+            if (SceneComponent->GetParent() == nullptr)
+            {
+                UE_LOG(EditorUI, Warning, "Cannot delete root component. Actor=%s Component=%s", Actor ? Actor->GetFName().ToString().c_str() : "None", ComponentLabel.c_str());
+                return;
+            }
+        }
+
+        const FString DeletedLabel = ComponentLabel;
+        Actor->RemoveComponent(SelectedComponent);
+        UE_LOG(EditorUI, Info, "Deleted component from Details panel. Actor=%s Component=%s", Actor ? Actor->GetFName().ToString().c_str() : "None", DeletedLabel.c_str());
+        SelectedComponent = nullptr;
+        bActorSelected = true;
+        return;
+    }
+
     ImGui::Separator();
 
     TArray<FPropertyDescriptor> Props;
