@@ -1481,6 +1481,17 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
     bool bChanged = false;
     const FString DisplayName = GetEditorFriendlyPropertyName(Prop.Name);
     const FString WidgetLabel = DisplayName + "##" + Prop.Name;
+    const bool bIsLockedTransformProperty =
+        SelectedComponent &&
+        SelectedComponent->IsA<USceneComponent>() &&
+        SelectedComponent->GetOwner() &&
+        SelectedComponent->GetOwner()->IsTransformLocked() &&
+        (Prop.Name == "Location" || Prop.Name == "Rotation" || Prop.Name == "Scale");
+
+    if (bIsLockedTransformProperty)
+    {
+        ImGui::BeginDisabled();
+    }
 
     switch (Prop.Type)
     {
@@ -1907,6 +1918,11 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
         }
         break;
     }
+    }
+
+    if (bIsLockedTransformProperty)
+    {
+        ImGui::EndDisabled();
     }
 
     if (bChanged && SelectedComponent)

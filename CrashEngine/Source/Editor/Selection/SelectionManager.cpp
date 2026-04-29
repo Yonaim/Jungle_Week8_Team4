@@ -268,6 +268,12 @@ void FSelectionManager::SyncGizmo()
     AActor* Primary = GetPrimarySelection();
     if (Primary)
     {
+        if (Primary->IsTransformLocked())
+        {
+            Gizmo->Deactivate();
+            return;
+        }
+
         Gizmo->SetTarget(Primary);
         Gizmo->SetSelectedActors(&SelectedActors);
     }

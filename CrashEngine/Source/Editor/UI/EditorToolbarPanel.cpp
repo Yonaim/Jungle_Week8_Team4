@@ -542,16 +542,7 @@ void FEditorToolbarPanel::RenderPaneToolbar(FLevelViewportLayout* Layout,
                 ImGui::Unindent();
             });
         }
-		if (ImGui::CollapsingHeader("Light Culling Options", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            int mode = Opts.ShowFlags.b25DCulling ? 1 : 0;
-
-            ImGui::RadioButton("2D Tile Culling", &mode, 0);
-            ImGui::SameLine();
-            ImGui::RadioButton("2.5D Tile Culling", &mode, 1);
-
-            Opts.ShowFlags.b25DCulling = (mode == 1);
-        } });
+    });
 
     OpenToolbarPopup("Shadow", "ShadowPopup", [&]()
                      {

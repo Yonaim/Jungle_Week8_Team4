@@ -5,6 +5,7 @@
 #include "Editor/Selection/SelectionManager.h"
 #include "Editor/Subsystem/OverlayStatSystem.h"
 #include "Editor/Viewport/EditorViewportClient.h"
+#include "Core/Logging/LogMacros.h"
 #include "Engine/Profiling/PlatformTime.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
@@ -65,6 +66,11 @@ bool FEditorSelectionTool::HandleWorldPicking(const FRay& Ray)
     {
         if (BestActor)
         {
+            UE_LOG(EditorUI, Info, "Picked actor: %s", Owner->GetActorDisplayName(BestActor).c_str());
+            if (BestActor->IsTransformLocked())
+            {
+                UE_LOG(EditorUI, Info, "Picked locked actor: %s", Owner->GetActorDisplayName(BestActor).c_str());
+            }
             SelectionManager->ToggleSelect(BestActor);
         }
         return true;
@@ -76,6 +82,11 @@ bool FEditorSelectionTool::HandleWorldPicking(const FRay& Ray)
     }
     else
     {
+        UE_LOG(EditorUI, Info, "Picked actor: %s", Owner->GetActorDisplayName(BestActor).c_str());
+        if (BestActor->IsTransformLocked())
+        {
+            UE_LOG(EditorUI, Info, "Picked locked actor: %s", Owner->GetActorDisplayName(BestActor).c_str());
+        }
         SelectionManager->Select(BestActor);
     }
 

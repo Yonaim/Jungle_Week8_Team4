@@ -44,6 +44,7 @@ public:
     {
         bool bConsole = true;
         bool bControl = true;
+        bool bOptimization = true;
         bool bProperty = true;
         bool bScene = true;
         bool bStat = false;

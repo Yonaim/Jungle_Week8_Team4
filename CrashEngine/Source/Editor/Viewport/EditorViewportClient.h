@@ -70,6 +70,8 @@ public:
 
     bool IsPilotingActor() const { return bIsPilotingActor && PilotedActor != nullptr; }
     AActor* GetPilotedActor() const { return PilotedActor; }
+    FVector GetEditorCameraLocationForUI() const;
+    FRotator GetEditorCameraRotationForUI() const;
     FString GetActorDisplayName(const AActor* Actor) const;
     FString GetPilotedActorDisplayName() const;
     FString GetPilotOverlayText() const;

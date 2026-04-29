@@ -276,6 +276,16 @@ void FEditorViewportClient::ApplyViewToPilotedActor()
     PilotedActor->SetActorRotation(Camera->GetRelativeRotation());
 }
 
+FVector FEditorViewportClient::GetEditorCameraLocationForUI() const
+{
+    return IsPilotingActor() ? SavedViewLocation : (Camera ? Camera->GetWorldLocation() : FVector());
+}
+
+FRotator FEditorViewportClient::GetEditorCameraRotationForUI() const
+{
+    return IsPilotingActor() ? SavedViewRotation : (Camera ? Camera->GetRelativeRotation() : FRotator());
+}
+
 FString FEditorViewportClient::GetActorDisplayName(const AActor* Actor) const
 {
     if (!Actor)

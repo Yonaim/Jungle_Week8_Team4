@@ -166,6 +166,7 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
 
     ConsolePanel.Initialize(InEditorEngine, &LogBuffer);
     ControlPanel.Initialize(InEditorEngine);
+    OptimizationPanel.Initialize(InEditorEngine);
     DetailsPanel.Initialize(InEditorEngine);
     ScenePanel.Initialize(InEditorEngine);
     StatPanel.Initialize(InEditorEngine);
@@ -243,6 +244,7 @@ void FEditorMainPanel::Render(float DeltaTime)
             FEditorSettings& S = FEditorSettings::Get();
             ImGui::MenuItem("Console", nullptr, &S.UI.bConsole);
             ImGui::MenuItem("Control Panel", nullptr, &S.UI.bControl);
+            ImGui::MenuItem("Optimization Option", nullptr, &S.UI.bOptimization);
             ImGui::MenuItem("Details", nullptr, &S.UI.bProperty);
             ImGui::MenuItem("Scene Manager", nullptr, &S.UI.bScene);
             ImGui::MenuItem("Stat Profiler", nullptr, &S.UI.bStat);
@@ -340,6 +342,12 @@ void FEditorMainPanel::Render(float DeltaTime)
     {
         SCOPE_STAT_CAT("ControlPanel.Render", "5_UI");
         ControlPanel.Render(DeltaTime);
+    }
+
+    if (!bHideEditorWindows && Settings.UI.bOptimization)
+    {
+        SCOPE_STAT_CAT("OptimizationPanel.Render", "5_UI");
+        OptimizationPanel.Render(DeltaTime);
     }
 
     if (!bHideEditorWindows && Settings.UI.bProperty)
@@ -446,6 +454,7 @@ void FEditorMainPanel::HideEditorWindowsForPIE()
 
     Settings.UI.bConsole = false;
     Settings.UI.bControl = false;
+    Settings.UI.bOptimization = false;
     Settings.UI.bProperty = false;
     Settings.UI.bScene = false;
     Settings.UI.bStat = false;

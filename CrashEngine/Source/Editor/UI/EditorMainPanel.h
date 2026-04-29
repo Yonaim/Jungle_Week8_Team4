@@ -8,6 +8,7 @@
 #include "Editor/UI/EditorConsolePanel.h"
 #include "Editor/UI/EditorControlPanel.h"
 #include "Editor/UI/EditorDetailsPanel.h"
+#include "Editor/UI/EditorOptimizationPanel.h"
 #include "Editor/UI/EditorSceneManagerPanel.h"
 #include "Editor/UI/EditorStatPanel.h"
 
@@ -37,6 +38,7 @@ private:
     FEditorLogBuffer LogBuffer;
     FEditorConsolePanel ConsolePanel;
     FEditorControlPanel ControlPanel;
+    FEditorOptimizationPanel OptimizationPanel;
     FEditorDetailsPanel DetailsPanel;
     FEditorScenePanel ScenePanel;
     FEditorStatPanel StatPanel;

@@ -17,7 +17,7 @@
 #include "GameFramework/PointLightActor.h"
 #include "GameFramework/SpotLightActor.h"
 #include "Engine/Platform/Paths.h"
-#include "Render/Resources/Shadows/ShadowMapSettings.h"
+#include "Editor/Viewport/LevelEditorViewportClient.h"
 
 #define SEPARATOR()     \
     ;                   \
@@ -93,8 +93,16 @@ void FEditorControlPanel::Render(float DeltaTime)
     ImGui::SetNextWindowCollapsed(false, ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(500.0f, 480.0f), ImGuiCond_Once);
     ImGui::Begin("Control");
+    RenderPlaceActorsSection();
+    SEPARATOR();
+    RenderCameraControlSection();
 
-    // ─── Spawn ───
+    ImGui::End();
+}
+
+void FEditorControlPanel::RenderPlaceActorsSection()
+{
+    ImGui::SeparatorText("Place Actors");
     ImGui::Combo("Primitive", &SelectedPrimitiveType, GetSpawnLabel, nullptr, SpawnTableSize);
 
     if (ImGui::Button("Spawn"))
@@ -103,45 +111,64 @@ void FEditorControlPanel::Render(float DeltaTime)
         if (SelectedPrimitiveType >= 0 && SelectedPrimitiveType < SpawnTableSize)
         {
             for (int32 i = 0; i < NumberOfSpawnedActors; ++i)
+            {
                 SpawnTable[SelectedPrimitiveType].Spawn(World, CurSpawnPoint);
+            }
         }
         NumberOfSpawnedActors = 1;
     }
     ImGui::InputInt("Number of Spawn", &NumberOfSpawnedActors, 1, 10);
+}
 
-    SEPARATOR();
+void FEditorControlPanel::RenderCameraControlSection()
+{
+    ImGui::SeparatorText("Camera Control");
 
-    // ─── Camera ───
-    UCameraComponent* Camera = EditorEngine->GetCamera();
+    FLevelEditorViewportClient* ActiveViewport = EditorEngine ? EditorEngine->GetActiveViewport() : nullptr;
+    UCameraComponent* Camera = ActiveViewport ? ActiveViewport->GetCamera() : EditorEngine->GetCamera();
+    if (!Camera || !ActiveViewport)
+    {
+        ImGui::TextDisabled("No active viewport camera.");
+        return;
+    }
+
+    const bool bIsPilotingActor = ActiveViewport->IsPilotingActor();
+    if (bIsPilotingActor)
+    {
+        ImGui::TextDisabled("Pilot mode active. Showing saved editor camera values.");
+    }
 
     float CameraFOV_Deg = Camera->GetFOV() * RAD_TO_DEG;
     if (ImGui::DragFloat("Camera FOV", &CameraFOV_Deg, 0.5f, 1.0f, 90.0f))
+    {
         Camera->SetFOV(CameraFOV_Deg * DEG_TO_RAD);
+    }
 
     float CameraSpeed = FEditorSettings::Get().CameraSpeed;
     if (ImGui::DragFloat("Camera Speed", &CameraSpeed, 0.1f, 0.1f, 200.0f, "%.2f"))
-        FEditorSettings::Get().CameraSpeed = Clamp(CameraSpeed, 0.1f, 200.0f);
-
-    bool bMobilityAwareShadowCaching = FEditorSettings::Get().bMobilityAwareShadowCaching;
-    if (ImGui::Checkbox("Mobility-aware Shadow Caching", &bMobilityAwareShadowCaching))
     {
-        FEditorSettings::Get().bMobilityAwareShadowCaching = bMobilityAwareShadowCaching;
-        SetMobilityAwareShadowCachingEnabled(bMobilityAwareShadowCaching);
+        FEditorSettings::Get().CameraSpeed = Clamp(CameraSpeed, 0.1f, 200.0f);
     }
 
     float OrthoWidth = Camera->GetOrthoWidth();
     if (ImGui::DragFloat("Ortho Width", &OrthoWidth, 0.1f, 0.1f, 1000.0f))
+    {
         Camera->SetOrthoWidth(Clamp(OrthoWidth, 0.1f, 1000.0f));
+    }
 
-    FVector CamPos = Camera->GetWorldLocation();
-    float CameraLocation[3] = { CamPos.X, CamPos.Y, CamPos.Z };
+    const FVector DisplayCamPos = ActiveViewport->GetEditorCameraLocationForUI();
+    float CameraLocation[3] = { DisplayCamPos.X, DisplayCamPos.Y, DisplayCamPos.Z };
+    ImGui::BeginDisabled(bIsPilotingActor);
     if (ImGui::DragFloat3("Camera Location", CameraLocation, 0.1f))
+    {
         Camera->SetWorldLocation(FVector(CameraLocation[0], CameraLocation[1], CameraLocation[2]));
+    }
 
-    FRotator CamRot = Camera->GetRelativeRotation();
-    float CameraRotation[3] = { CamRot.Roll, CamRot.Pitch, CamRot.Yaw };
+    const FRotator DisplayCamRot = ActiveViewport->GetEditorCameraRotationForUI();
+    float CameraRotation[3] = { DisplayCamRot.Roll, DisplayCamRot.Pitch, DisplayCamRot.Yaw };
     if (ImGui::DragFloat3("Camera Rotation", CameraRotation, 0.1f))
-        Camera->SetRelativeRotation(FRotator(CameraRotation[1], CameraRotation[2], CamRot.Roll));
-
-    ImGui::End();
+    {
+        Camera->SetRelativeRotation(FRotator(CameraRotation[1], CameraRotation[2], CameraRotation[0]));
+    }
+    ImGui::EndDisabled();
 }
