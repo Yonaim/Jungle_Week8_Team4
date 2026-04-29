@@ -167,6 +167,7 @@ void FEditorMainPanel::Create(FWindowsWindow* InWindow, FRenderer& InRenderer, U
     ConsolePanel.Initialize(InEditorEngine, &LogBuffer);
     ControlPanel.Initialize(InEditorEngine);
     OptimizationPanel.Initialize(InEditorEngine);
+    PlaceActorsPanel.Initialize(InEditorEngine);
     DetailsPanel.Initialize(InEditorEngine);
     ScenePanel.Initialize(InEditorEngine);
     StatPanel.Initialize(InEditorEngine);
@@ -243,7 +244,8 @@ void FEditorMainPanel::Render(float DeltaTime)
         {
             FEditorSettings& S = FEditorSettings::Get();
             ImGui::MenuItem("Console", nullptr, &S.UI.bConsole);
-            ImGui::MenuItem("Control Panel", nullptr, &S.UI.bControl);
+            ImGui::MenuItem("Camera Control", nullptr, &S.UI.bControl);
+            ImGui::MenuItem("Place Actors", nullptr, &S.UI.bPlaceActors);
             ImGui::MenuItem("Optimization Option", nullptr, &S.UI.bOptimization);
             ImGui::MenuItem("Details", nullptr, &S.UI.bProperty);
             ImGui::MenuItem("Scene Manager", nullptr, &S.UI.bScene);
@@ -282,11 +284,13 @@ void FEditorMainPanel::Render(float DeltaTime)
                 FEditorSettings::Get().UI.bStat = true;
                 StatPanel.RequestOpen();
             }
+            if (ImGui::MenuItem("stat shadow"))
+            {
+                EditorEngine->GetOverlayStatSystem().ShowShadow(true);
+            }
             if (ImGui::MenuItem("stat none"))
             {
                 EditorEngine->GetOverlayStatSystem().HideAll();
-                FEditorSettings::Get().UI.bStat = true;
-                StatPanel.RequestOpen();
             }
             ImGui::EndMenu();
         }
@@ -342,6 +346,12 @@ void FEditorMainPanel::Render(float DeltaTime)
     {
         SCOPE_STAT_CAT("ControlPanel.Render", "5_UI");
         ControlPanel.Render(DeltaTime);
+    }
+
+    if (!bHideEditorWindows && Settings.UI.bPlaceActors)
+    {
+        SCOPE_STAT_CAT("PlaceActorsPanel.Render", "5_UI");
+        PlaceActorsPanel.Render(DeltaTime);
     }
 
     if (!bHideEditorWindows && Settings.UI.bOptimization)
@@ -455,6 +465,7 @@ void FEditorMainPanel::HideEditorWindowsForPIE()
     Settings.UI.bConsole = false;
     Settings.UI.bControl = false;
     Settings.UI.bOptimization = false;
+    Settings.UI.bPlaceActors = false;
     Settings.UI.bProperty = false;
     Settings.UI.bScene = false;
     Settings.UI.bStat = false;

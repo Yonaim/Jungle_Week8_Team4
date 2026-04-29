@@ -823,7 +823,20 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
                     PendingPilotContextViewport->PilotSelectedActor(PendingPilotContextActor);
                     ImGui::CloseCurrentPopup();
                 }
+            }
 
+            const bool bCanStopPiloting = PendingPilotContextViewport && PendingPilotContextViewport->IsPilotingActor();
+            if (bCanStopPiloting)
+            {
+                if (ImGui::Selectable("Stop Piloting Actor", false))
+                {
+                    PendingPilotContextViewport->StopPilotingActor();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+
+            if (PendingPilotContextActor)
+            {
                 ImGui::Separator();
 
                 bool bTransformLock = PendingPilotContextActor->IsTransformLocked();
@@ -831,21 +844,6 @@ void FLevelViewportLayout::RenderViewportUI(float DeltaTime)
                 {
                     PendingPilotContextActor->SetTransformLocked(bTransformLock);
                     PendingPilotContextActor->MarkShadowMapDirty();
-                }
-            }
-
-            const bool bCanStopPiloting = PendingPilotContextViewport && PendingPilotContextViewport->IsPilotingActor();
-            if (bCanStopPiloting)
-            {
-                if (PendingPilotContextActor)
-                {
-                    ImGui::Separator();
-                }
-
-                if (ImGui::Selectable("Stop Piloting Actor", false))
-                {
-                    PendingPilotContextViewport->StopPilotingActor();
-                    ImGui::CloseCurrentPopup();
                 }
             }
 

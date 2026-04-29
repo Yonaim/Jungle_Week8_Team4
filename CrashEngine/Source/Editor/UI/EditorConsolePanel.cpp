@@ -131,7 +131,7 @@ void FEditorConsolePanel::Initialize(UEditorEngine* InEditorEngine, FEditorLogBu
 
                         if (Args.size() < 2)
                         {
-                            UE_LOG(Console, Warning, "Usage: stat fps | stat memory | stat lightcull | stat none");
+                            UE_LOG(Console, Warning, "Usage: stat fps | stat memory | stat lightcull | stat shadow | stat none");
                             return;
                         }
 
@@ -153,6 +153,11 @@ void FEditorConsolePanel::Initialize(UEditorEngine* InEditorEngine, FEditorLogBu
                             StatSystem.ShowLightCull(true);
                             UE_LOG(Console, Info, "Overlay stat enabled: lightcull");
                         }
+                        else if (SubCommand == "shadow")
+                        {
+                            StatSystem.ShowShadow(true);
+                            UE_LOG(Console, Info, "Overlay stat enabled: shadow");
+                        }
                         else if (SubCommand == "none")
                         {
                             StatSystem.HideAll();
@@ -161,7 +166,7 @@ void FEditorConsolePanel::Initialize(UEditorEngine* InEditorEngine, FEditorLogBu
                         else
                         {
                             UE_LOG(Console, Error, "Unknown stat command: '%s'", SubCommand.c_str());
-                            UE_LOG(Console, Warning, "Usage: stat fps | stat memory | stat lightcull | stat none");
+                            UE_LOG(Console, Warning, "Usage: stat fps | stat memory | stat lightcull | stat shadow | stat none");
                         }
                     });
 

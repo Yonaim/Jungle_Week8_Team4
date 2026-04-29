@@ -6,6 +6,8 @@
 #include "Engine/Profiling/Timer.h"
 #include "Engine/Profiling/MemoryStats.h"
 #include "Profiling/Stats.h"
+#include "Profiling/GPUProfiler.h"
+#include <cstring>
 #include <cstdio>
 
 // バイト数を適切な単位 (B / KB / MB / GB) に変換して文字列化
@@ -40,6 +42,18 @@ static bool UsesLightingPass(EViewMode ViewMode)
     }
 }
 
+static const FStatEntry* FindStatEntryByName(const TArray<FStatEntry>& Entries, const char* Name)
+{
+    for (const FStatEntry& Entry : Entries)
+    {
+        if (Entry.Name && strcmp(Entry.Name, Name) == 0)
+        {
+            return &Entry;
+        }
+    }
+    return nullptr;
+}
+
 void FOverlayStatSystem::AppendLine(TArray<FOverlayStatLine>& OutLines, float Y, const FString& Text) const
 {
     FOverlayStatLine Line;
@@ -61,6 +75,7 @@ void FOverlayStatSystem::ClearDisplayFlags()
     bShowPickingTime = false;
     bShowMemory = false;
     bShowLightCull = false;
+    bShowShadow = false;
 }
 
 void FOverlayStatSystem::ShowFPS(bool bEnable)
@@ -95,6 +110,13 @@ void FOverlayStatSystem::ShowLightCull(bool bEnable)
     }
 }
 
+void FOverlayStatSystem::ShowShadow(bool bEnable)
+{
+    ClearDisplayFlags();
+    bShowShadow = bEnable;
+    FLightCullStats::SetEnabled(false);
+}
+
 void FOverlayStatSystem::HideAll()
 {
     ClearDisplayFlags();
@@ -122,6 +144,10 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
     if (bShowLightCull)
     {
         EstimatedLineCount += 2;
+    }
+    if (bShowShadow)
+    {
+        EstimatedLineCount += 9;
     }
     OutLines.reserve(EstimatedLineCount);
 
@@ -213,6 +239,62 @@ void FOverlayStatSystem::BuildLines(const UEditorEngine& Editor, TArray<FOverlay
         CurrentY += Layout.LineHeight;
 
         snprintf(Buffer, sizeof(Buffer), "Total Per-Pixel Local Light Evaluations: %u", FLightCullStats::GetEvaluationCount());
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+    }
+
+    if (bShowShadow)
+    {
+        const TArray<FStatEntry>& CPUStats = FStatManager::Get().GetSnapshot();
+        const TArray<FStatEntry>& GPUStats = FGPUProfiler::Get().GetGPUSnapshot();
+
+        const FStatEntry* ShadowCasterCPU = FindStatEntryByName(CPUStats, "Shadow Caster Collection");
+        const FStatEntry* ShadowFrustumCPU = FindStatEntryByName(CPUStats, "Shadow Light Frustum Culling");
+        const FStatEntry* ShadowAtlasCPU = FindStatEntryByName(CPUStats, "Shadow Atlas Update");
+        const FStatEntry* ShadowDepthGPU = FindStatEntryByName(GPUStats, "Shadow Depth Pass");
+        const FStatEntry* ShadowAtlasGPU = FindStatEntryByName(GPUStats, "Shadow Atlas Update GPU");
+
+        const float ShadowDepthMs = ShadowDepthGPU ? static_cast<float>(ShadowDepthGPU->LastTime * 1000.0) : 0.0f;
+        const float EstimatedVertexMs = ShadowDepthMs * 0.35f;
+        const float EstimatedRasterMs = ShadowDepthMs * 0.40f;
+        const float EstimatedDepthWriteMs = ShadowDepthMs * 0.25f;
+        const double EstimatedBandwidthMB =
+            static_cast<double>(FShadowPipelineStats::GetEstimatedBandwidthBytes()) / (1024.0 * 1024.0);
+
+        char Buffer[160] = {};
+        snprintf(Buffer, sizeof(Buffer), "Shadow Caster Collection CPU: %.3f ms", ShadowCasterCPU ? ShadowCasterCPU->LastTime * 1000.0 : 0.0);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Light Frustum Culling CPU: %.3f ms", ShadowFrustumCPU ? ShadowFrustumCPU->LastTime * 1000.0 : 0.0);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Shadow Depth Draw Calls: %u", FShadowPipelineStats::GetShadowDepthDrawCalls());
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Vertex Shader Cost (est.): %.3f ms", EstimatedVertexMs);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Rasterization Cost (est.): %.3f ms", EstimatedRasterMs);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Depth Write Cost (est.): %.3f ms", EstimatedDepthWriteMs);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Shadow Atlas Update CPU: %.3f ms", ShadowAtlasCPU ? ShadowAtlasCPU->LastTime * 1000.0 : 0.0);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "Shadow Atlas Update GPU: %.3f ms", ShadowAtlasGPU ? ShadowAtlasGPU->LastTime * 1000.0 : 0.0);
+        AppendLine(OutLines, CurrentY, FString(Buffer));
+        CurrentY += Layout.LineHeight;
+
+        snprintf(Buffer, sizeof(Buffer), "GPU Bandwidth (est.): %.2f MB", EstimatedBandwidthMB);
         AppendLine(OutLines, CurrentY, FString(Buffer));
         CurrentY += Layout.LineHeight;
     }

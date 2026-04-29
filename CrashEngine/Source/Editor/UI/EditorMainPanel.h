@@ -9,6 +9,7 @@
 #include "Editor/UI/EditorControlPanel.h"
 #include "Editor/UI/EditorDetailsPanel.h"
 #include "Editor/UI/EditorOptimizationPanel.h"
+#include "Editor/UI/EditorPlaceActorsPanel.h"
 #include "Editor/UI/EditorSceneManagerPanel.h"
 #include "Editor/UI/EditorStatPanel.h"
 
@@ -39,6 +40,7 @@ private:
     FEditorConsolePanel ConsolePanel;
     FEditorControlPanel ControlPanel;
     FEditorOptimizationPanel OptimizationPanel;
+    FEditorPlaceActorsPanel PlaceActorsPanel;
     FEditorDetailsPanel DetailsPanel;
     FEditorScenePanel ScenePanel;
     FEditorStatPanel StatPanel;

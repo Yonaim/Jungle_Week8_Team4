@@ -12,6 +12,9 @@ uint32 FLightCullStats::LastEvaluationCount = 0;
 uint32 FShadowCacheStats::RedrawnLightCount = 0;
 uint32 FShadowCacheStats::ReusedLightCount = 0;
 uint32 FShadowCacheStats::SubmittedCasterCount = 0;
+uint32 FShadowPipelineStats::ShadowDepthDrawCalls = 0;
+uint32 FShadowPipelineStats::AtlasUpdateCount = 0;
+uint64 FShadowPipelineStats::EstimatedBandwidthBytes = 0;
 
 #if STATS
 uint32 FLODStats::LODCount[4] = { 0, 0, 0, 0 };

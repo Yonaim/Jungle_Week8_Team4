@@ -3,6 +3,7 @@
 
 #include "Editor/EditorEngine.h"
 #include "Editor/Selection/SelectionManager.h"
+#include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "GameFramework/World.h"
 
 #include "ImGui/imgui.h"
@@ -49,6 +50,8 @@ void FEditorScenePanel::RenderActorOutliner()
 
     FSelectionManager& Selection = EditorEngine->GetSelectionManager();
     const TArray<AActor*>& Actors = World->GetActors();
+    const FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+    const AActor* PilotedActor = (ActiveViewport && ActiveViewport->IsPilotingActor()) ? ActiveViewport->GetPilotedActor() : nullptr;
 
     ValidActorIndices.clear();
     ValidActorIndices.reserve(Actors.size());
@@ -218,6 +221,11 @@ void FEditorScenePanel::RenderActorOutliner()
             const bool bSelected = Selection.IsSelected(Actor);
             ImGui::PushID(Actor);
             ImGui::TableNextRow();
+
+            if (Actor == PilotedActor)
+            {
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, IM_COL32(214, 178, 32, 96));
+            }
 
             ImGui::TableSetColumnIndex(0);
             bool bChecked = bSelected;

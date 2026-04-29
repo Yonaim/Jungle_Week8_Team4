@@ -1,11 +1,16 @@
 ﻿// 에디터 영역의 세부 동작을 구현합니다.
 #include "Editor/Selection/SelectionManager.h"
+#include "Editor/EditorEngine.h"
+#include "Editor/Viewport/LevelEditorViewportClient.h"
 #include "Object/Object.h"
 #include "Component/GizmoComponent.h"
 #include "Component/PrimitiveComponent.h"
 #include "GameFramework/AActor.h"
 #include "GameFramework/World.h"
+#include "Engine/Runtime/Engine.h"
 #include "Render/Scene/Scene.h"
+
+#include <algorithm>
 
 void FSelectionManager::Init()
 {
@@ -108,8 +113,8 @@ void FSelectionManager::SelectRange(AActor* ClickedActor, const TArray<AActor*>&
     }
 
     // Replace selection with range [min, max]
-    int32 Lo = std::min(AnchorIdx, ClickedIdx);
-    int32 Hi = std::max(AnchorIdx, ClickedIdx);
+    int32 Lo = (AnchorIdx < ClickedIdx) ? AnchorIdx : ClickedIdx;
+    int32 Hi = (AnchorIdx > ClickedIdx) ? AnchorIdx : ClickedIdx;
 
     // 기존 선택 해제
     for (AActor* Prev : SelectedActors)
@@ -268,6 +273,16 @@ void FSelectionManager::SyncGizmo()
     AActor* Primary = GetPrimarySelection();
     if (Primary)
     {
+        if (const UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            const FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+            if (ActiveViewport && ActiveViewport->IsPilotingActor() && ActiveViewport->GetPilotedActor() == Primary)
+            {
+                Gizmo->Deactivate();
+                return;
+            }
+        }
+
         if (Primary->IsTransformLocked())
         {
             Gizmo->Deactivate();

@@ -151,6 +151,27 @@ private:
     static uint32 SubmittedCasterCount;
 };
 
+struct FShadowPipelineStats
+{
+    static void ResetFrame()
+    {
+        ShadowDepthDrawCalls = 0;
+        AtlasUpdateCount = 0;
+        EstimatedBandwidthBytes = 0;
+    }
+    static void RecordShadowDepthDrawCalls(uint32 InDrawCalls) { ShadowDepthDrawCalls += InDrawCalls; }
+    static void RecordAtlasUpdate() { ++AtlasUpdateCount; }
+    static void RecordEstimatedBandwidthBytes(uint64 InBytes) { EstimatedBandwidthBytes += InBytes; }
+    static uint32 GetShadowDepthDrawCalls() { return ShadowDepthDrawCalls; }
+    static uint32 GetAtlasUpdateCount() { return AtlasUpdateCount; }
+    static uint64 GetEstimatedBandwidthBytes() { return EstimatedBandwidthBytes; }
+
+private:
+    static uint32 ShadowDepthDrawCalls;
+    static uint32 AtlasUpdateCount;
+    static uint64 EstimatedBandwidthBytes;
+};
+
 // --- LOD Distribution Counter ---
 #if STATS
 // FLODStats는 엔진 처리에 필요한 데이터를 묶는 구조체입니다.

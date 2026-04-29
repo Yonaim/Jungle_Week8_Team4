@@ -96,17 +96,7 @@ void FEditorStatPanel::Render(float DeltaTime)
     ImGui::Text("Draw Calls: %u", DrawCalls);
     ImGui::Text("LOD0: %u  LOD1: %u  LOD2: %u  LOD3: %u",
                 FLODStats::GetLOD0(), FLODStats::GetLOD1(), FLODStats::GetLOD2(), FLODStats::GetLOD3());
-    const uint32 ShadowRedrawnLights = FShadowCacheStats::GetRedrawnLightCount();
-    const uint32 ShadowReusedLights = FShadowCacheStats::GetReusedLightCount();
-    const uint32 TotalShadowTrackedLights = ShadowRedrawnLights + ShadowReusedLights;
-    const float ShadowReuseRate = TotalShadowTrackedLights > 0
-        ? (static_cast<float>(ShadowReusedLights) / static_cast<float>(TotalShadowTrackedLights)) * 100.0f
-        : 0.0f;
-    ImGui::Text("Mobility-aware Shadow Caching: %s", IsMobilityAwareShadowCachingEnabled() ? "On" : "Off");
-    ImGui::Text("Shadow Redraw Lights: %u", ShadowRedrawnLights);
-    ImGui::Text("Shadow Reused Lights: %u (%.1f%%)", ShadowReusedLights, ShadowReuseRate);
-    ImGui::Text("Submitted Shadow Casters: %u", FShadowCacheStats::GetSubmittedCasterCount());
-    ImGui::TextDisabled("Compare these values and ShadowMap CPU/GPU timings with caching On/Off.");
+    ImGui::TextDisabled("Use `stat shadow` in the console for detailed shadow metrics.");
     ImGui::Separator();
 
     // 남은 공간을 CPU/GPU 테이블이 반씩 사용
@@ -117,14 +107,14 @@ void FEditorStatPanel::Render(float DeltaTime)
 
     // --- CPU Stats ---
     const TArray<FStatEntry>& CPUSource = bPaused ? FrozenCPUEntries : FStatManager::Get().GetSnapshot();
-    if (ImGui::CollapsingHeader("CPU Stats", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("CPU Stats"))
     {
         RenderStatTable("CPUStatTable", CPUSource, CPUSortColumn, bCPUSortDescending, HalfHeight);
     }
 
     // --- GPU Stats ---
     const TArray<FStatEntry>& GPUSource = bPaused ? FrozenGPUEntries : FGPUProfiler::Get().GetGPUSnapshot();
-    if (ImGui::CollapsingHeader("GPU Stats", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("GPU Stats"))
     {
         RenderStatTable("GPUStatTable", GPUSource, GPUSortColumn, bGPUSortDescending, HalfHeight);
     }

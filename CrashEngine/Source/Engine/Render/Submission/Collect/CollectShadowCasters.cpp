@@ -581,6 +581,7 @@ void FDrawCollector::ComputePointShadowMatrices(FLightProxy* Light)
 
 void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* SceneView)
 {
+    SCOPE_STAT_CAT("Shadow Caster Collection", "6_ShadowCPU");
     if (!World || !SceneView)
     {
         return;
@@ -602,26 +603,29 @@ void FDrawCollector::CollectShadowCasters(UWorld* World, const FSceneView* Scene
 
         FLightProxyInfo& LC = Light->LightProxyInfo;
         TArray<FPrimitiveProxy*> CandidateCasters;
-        if (LC.LightType == static_cast<uint32>(ELightType::Directional))
         {
-            ComputeDirectionalShadowMatrices(Light, World, SceneView);
-            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
+            SCOPE_STAT_CAT("Shadow Light Frustum Culling", "6_ShadowCPU");
+            if (LC.LightType == static_cast<uint32>(ELightType::Directional))
+            {
+                ComputeDirectionalShadowMatrices(Light, World, SceneView);
+                Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
 
-            const FConvexVolume& CasterQueryFrustum =
-                GetShadowMapMethod() == EShadowMapMethod::PSM ? SceneView->FrustumVolume : Light->ShadowViewFrustum;
-            World->GetPartition().QueryFrustumAllProxies(CasterQueryFrustum, CandidateCasters);
-        }
-        else if (LC.LightType == static_cast<uint32>(ELightType::Spot))
-        {
-            ComputeSpotShadowMatrices(Light);
-            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
-            World->GetPartition().QueryFrustumAllProxies(Light->ShadowViewFrustum, CandidateCasters);
-        }
-        else if (LC.LightType == static_cast<uint32>(ELightType::Point))
-        {
-            ComputePointShadowMatrices(Light);
-            Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
-            World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, CandidateCasters);
+                const FConvexVolume& CasterQueryFrustum =
+                    GetShadowMapMethod() == EShadowMapMethod::PSM ? SceneView->FrustumVolume : Light->ShadowViewFrustum;
+                World->GetPartition().QueryFrustumAllProxies(CasterQueryFrustum, CandidateCasters);
+            }
+            else if (LC.LightType == static_cast<uint32>(ELightType::Spot))
+            {
+                ComputeSpotShadowMatrices(Light);
+                Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
+                World->GetPartition().QueryFrustumAllProxies(Light->ShadowViewFrustum, CandidateCasters);
+            }
+            else if (LC.LightType == static_cast<uint32>(ELightType::Point))
+            {
+                ComputePointShadowMatrices(Light);
+                Light->ShadowViewFrustum.UpdateFromMatrix(Light->LightViewProj);
+                World->GetPartition().QuerySphereAllProxies({LC.Position, LC.AttenuationRadius}, CandidateCasters);
+            }
         }
 
         TArray<FPrimitiveProxy*> FilteredCasters;

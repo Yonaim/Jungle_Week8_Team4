@@ -2,6 +2,7 @@
 #include "Editor/Viewport/EditorViewportClient.h"
 
 #include "Core/Logging/LogMacros.h"
+#include "Editor/EditorEngine.h"
 #include "Editor/Settings/EditorSettings.h"
 
 #include "Component/CameraComponent.h"
@@ -19,6 +20,20 @@
 #include "Object/Object.h"
 
 #include "Editor/Input/EditorViewportInputController.h"
+
+namespace
+{
+bool HasPilotedTransformDrift(const UCameraComponent* Camera, const AActor* Actor)
+{
+    if (!Camera || !Actor)
+    {
+        return false;
+    }
+
+    return FVector::DistSquared(Camera->GetWorldLocation(), Actor->GetActorLocation()) > 1e-6f ||
+           Camera->GetRelativeRotation() != Actor->GetActorRotation();
+}
+}
 
 UWorld* FEditorViewportClient::GetWorld() const
 {
@@ -147,12 +162,33 @@ void FEditorViewportClient::Tick(float DeltaTime)
 
     UpdateViewFromPilotedActor();
 
+    bool bHandledInput = false;
     if (InputController)
     {
-        InputController->HandleInput(DeltaTime);
+        bHandledInput = InputController->HandleInput(DeltaTime);
+    }
+
+    if (bIsPilotingActor && PilotedActor && PilotedActor->IsTransformLocked())
+    {
+        if (bHandledInput && HasPilotedTransformDrift(Camera, PilotedActor))
+        {
+            if (!bWarnedLockedPilotTransformAttempt)
+            {
+                UE_LOG(Viewport, Warning, "Transform change blocked while piloting locked actor '%s'. Disable Transform Lock to move this actor.", GetActorDisplayName(PilotedActor).c_str());
+                bWarnedLockedPilotTransformAttempt = true;
+            }
+
+            UpdateViewFromPilotedActor();
+        }
+        else if (!HasPilotedTransformDrift(Camera, PilotedActor))
+        {
+            bWarnedLockedPilotTransformAttempt = false;
+        }
+        return;
     }
 
     ApplyViewToPilotedActor();
+    bWarnedLockedPilotTransformAttempt = false;
 }
 
 void FEditorViewportClient::PilotSelectedActor(AActor* Actor)
@@ -169,24 +205,29 @@ void FEditorViewportClient::PilotSelectedActor(AActor* Actor)
         SavedViewportType = RenderOptions.ViewportType;
     }
 
-    if (SelectionManager && PilotedActor && PilotedActor != Actor)
+    if (PilotedActor && PilotedActor != Actor)
     {
         SetPilotedActorEditorHelpersVisible(true);
-        SelectionManager->RemoveSelectionBlock(PilotedActor);
+
+        if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+        {
+            EditorEngine->GetSelectionManager().RemoveSelectionBlock(PilotedActor);
+        }
     }
 
     PilotedActor = Actor;
     bIsPilotingActor = true;
+    bWarnedLockedPilotTransformAttempt = false;
     UE_LOG(Viewport, Info, "Started piloting actor '%s'.", GetActorDisplayName(Actor).c_str());
-
-    if (SelectionManager)
-    {
-        SelectionManager->AddSelectionBlock(PilotedActor);
-    }
 
     if (RenderOptions.ViewportType != ELevelViewportType::Perspective)
     {
         SetViewportType(ELevelViewportType::Perspective);
+    }
+
+    if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
+    {
+        EditorEngine->GetSelectionManager().AddSelectionBlock(PilotedActor);
     }
 
     SetPilotedActorEditorHelpersVisible(false);
@@ -200,14 +241,16 @@ void FEditorViewportClient::StopPilotingActor()
         return;
     }
 
-    if (SelectionManager && PilotedActor)
+    SetPilotedActorEditorHelpersVisible(true);
+
+    if (UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine))
     {
-        SelectionManager->RemoveSelectionBlock(PilotedActor);
+        EditorEngine->GetSelectionManager().RemoveSelectionBlock(PilotedActor);
     }
 
-    SetPilotedActorEditorHelpersVisible(true);
     PilotedActor = nullptr;
     bIsPilotingActor = false;
+    bWarnedLockedPilotTransformAttempt = false;
     UE_LOG(Viewport, Info, "Stopped piloting actor.");
 
     if (Camera)
@@ -232,7 +275,7 @@ void FEditorViewportClient::SetPilotedActorEditorHelpersVisible(bool bVisible)
 
         for (UPrimitiveComponent* Primitive : PilotedActor->GetPrimitiveComponents())
         {
-            if (!Primitive || !Primitive->IsEditorHelper())
+            if (!Primitive)
             {
                 continue;
             }

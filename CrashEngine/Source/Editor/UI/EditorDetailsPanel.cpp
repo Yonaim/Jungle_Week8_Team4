@@ -275,6 +275,16 @@ static const char* GetLightMobilityLabel(ELightMobility Mobility)
     }
 }
 
+static void RenderReadOnlyVector3(const char* Label, const FVector& Value)
+{
+    ImGui::Text("%s: %.2f, %.2f, %.2f", Label, Value.X, Value.Y, Value.Z);
+}
+
+static void RenderReadOnlyRotator(const char* Label, const FRotator& Value)
+{
+    ImGui::Text("%s: %.2f, %.2f, %.2f", Label, Value.Roll, Value.Pitch, Value.Yaw);
+}
+
 static bool BeginEditorSection(const char* Label, ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_DefaultOpen)
 {
     return ImGui::CollapsingHeader(Label, Flags);
@@ -416,21 +426,22 @@ void FEditorDetailsPanel::Render(float DeltaTime)
 
     ImGui::SetNextWindowSize(ImVec2(350.0f, 500.0f), ImGuiCond_Once);
 
-    ImGui::Begin("Details");
-
     FSelectionManager& Selection = EditorEngine->GetSelectionManager();
     AActor* PrimaryActor = Selection.GetPrimarySelection();
     TArray<AActor*> FallbackActors;
+    AActor* PilotedActor = nullptr;
+    FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
+    if (ActiveViewport && ActiveViewport->IsPilotingActor())
+    {
+        PilotedActor = ActiveViewport->GetPilotedActor();
+    }
+
     if (!PrimaryActor)
     {
-        FLevelEditorViewportClient* ActiveViewport = EditorEngine->GetActiveViewport();
-        if (ActiveViewport && ActiveViewport->IsPilotingActor())
+        if (PilotedActor)
         {
-            if (AActor* PilotedActor = ActiveViewport->GetPilotedActor())
-            {
-                PrimaryActor = PilotedActor;
-                FallbackActors.push_back(PilotedActor);
-            }
+            PrimaryActor = PilotedActor;
+            FallbackActors.push_back(PilotedActor);
         }
     }
 
@@ -439,6 +450,7 @@ void FEditorDetailsPanel::Render(float DeltaTime)
         SelectedComponent = nullptr;
         LastSelectedActor = nullptr;
         bActorSelected = true;
+        ImGui::Begin("Details");
         ImGui::TextDisabled("No actor selected.");
         ImGui::End();
         return;
@@ -454,6 +466,14 @@ void FEditorDetailsPanel::Render(float DeltaTime)
 
     const TArray<AActor*>& SelectedActors = FallbackActors.empty() ? Selection.GetSelectedActors() : FallbackActors;
     const int32 SelectionCount = static_cast<int32>(SelectedActors.size());
+    const bool bShowPilotHighlight = (PrimaryActor != nullptr && PrimaryActor == PilotedActor);
+
+    if (bShowPilotHighlight)
+    {
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(214.0f / 255.0f, 178.0f / 255.0f, 32.0f / 255.0f, 96.0f / 255.0f));
+    }
+
+    ImGui::Begin("Details");
 
     // ========== 고정 영역: Actor Info ==========
     ImGui::Text("Class: %s", PrimaryActor->GetClass()->GetName());
@@ -493,13 +513,21 @@ void FEditorDetailsPanel::Render(float DeltaTime)
     if (ScrollHeight < 50.0f)
         ScrollHeight = 50.0f;
 
+    const ImVec4 DetailsChildBg = ImGui::GetStyle().Colors[ImGuiCol_ChildBg];
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, DetailsChildBg);
     ImGui::BeginChild("##Details", ImVec2(0, ScrollHeight), true, ImGuiWindowFlags_AlwaysVerticalScrollbar);
     {
         RenderDetails(PrimaryActor, SelectedActors);
     }
     ImGui::EndChild();
+    ImGui::PopStyleColor();
 
     ImGui::End();
+
+    if (bShowPilotHighlight)
+    {
+        ImGui::PopStyleColor();
+    }
 }
 
 void FEditorDetailsPanel::RenderDetails(AActor* PrimaryActor, const TArray<AActor*>& SelectedActors)
@@ -528,63 +556,72 @@ void FEditorDetailsPanel::RenderActorProperties(AActor* PrimaryActor, const TArr
         ImGui::Separator();
         ImGui::Text("Transform");
         ImGui::Spacing();
+        const bool bTransformLocked = PrimaryActor->IsTransformLocked();
 
         FVector Pos = PrimaryActor->GetActorLocation();
-        float PosArray[3] = { Pos.X, Pos.Y, Pos.Z };
-
         USceneComponent* RootComp = PrimaryActor->GetRootComponent();
-
         FVector Scale = PrimaryActor->GetActorScale();
-        float ScaleArray[3] = { Scale.X, Scale.Y, Scale.Z };
 
-        if (ImGui::DragFloat3("Location", PosArray, 0.1f))
+        if (bTransformLocked)
         {
-            FVector Delta = FVector(PosArray[0], PosArray[1], PosArray[2]) - Pos;
-            for (AActor* Actor : SelectedActors)
-            {
-                if (Actor)
-                    Actor->AddActorWorldOffset(Delta);
-            }
-            EditorEngine->GetGizmo()->UpdateGizmoTransform();
+            ImGui::TextDisabled("Transform Lock is enabled.");
+            RenderReadOnlyVector3("Location", Pos);
+            RenderReadOnlyRotator("Rotation", RootComp->GetCachedEditRotator());
+            RenderReadOnlyVector3("Scale", Scale);
         }
+        else
         {
-            // Rotation: CachedEditRotator를 X=Roll(X축), Y=Pitch(Y축), Z=Yaw(Z축)로 노출
-            FRotator& CachedRot = RootComp->GetCachedEditRotator();
-            FRotator PrevRot = CachedRot;
-            float RotXYZ[3] = { CachedRot.Roll, CachedRot.Pitch, CachedRot.Yaw };
+            float PosArray[3] = { Pos.X, Pos.Y, Pos.Z };
+            float ScaleArray[3] = { Scale.X, Scale.Y, Scale.Z };
 
-            if (ImGui::DragFloat3("Rotation", RotXYZ, 0.1f))
+            if (ImGui::DragFloat3("Location", PosArray, 0.1f))
             {
-                CachedRot.Roll = RotXYZ[0];
-                CachedRot.Pitch = RotXYZ[1];
-                CachedRot.Yaw = RotXYZ[2];
-
-                if (SelectedActors.size() > 1)
+                FVector Delta = FVector(PosArray[0], PosArray[1], PosArray[2]) - Pos;
+                for (AActor* Actor : SelectedActors)
                 {
-                    FRotator Delta = CachedRot - PrevRot;
-                    for (AActor* Actor : SelectedActors)
-                    {
-                        if (!Actor || Actor == PrimaryActor)
-                            continue;
-                        USceneComponent* Root = Actor->GetRootComponent();
-                        if (Root)
-                        {
-                            FRotator Other = Root->GetCachedEditRotator();
-                            Root->SetRelativeRotation(Other + Delta);
-                        }
-                    }
+                    if (Actor)
+                        Actor->AddActorWorldOffset(Delta);
                 }
-                RootComp->ApplyCachedEditRotator();
                 EditorEngine->GetGizmo()->UpdateGizmoTransform();
             }
-        }
-        if (ImGui::DragFloat3("Scale", ScaleArray, 0.1f))
-        {
-            FVector Delta = FVector(ScaleArray[0], ScaleArray[1], ScaleArray[2]) - Scale;
-            for (AActor* Actor : SelectedActors)
             {
-                if (Actor)
-                    Actor->SetActorScale(Actor->GetActorScale() + Delta);
+                FRotator& CachedRot = RootComp->GetCachedEditRotator();
+                FRotator PrevRot = CachedRot;
+                float RotXYZ[3] = { CachedRot.Roll, CachedRot.Pitch, CachedRot.Yaw };
+
+                if (ImGui::DragFloat3("Rotation", RotXYZ, 0.1f))
+                {
+                    CachedRot.Roll = RotXYZ[0];
+                    CachedRot.Pitch = RotXYZ[1];
+                    CachedRot.Yaw = RotXYZ[2];
+
+                    if (SelectedActors.size() > 1)
+                    {
+                        FRotator Delta = CachedRot - PrevRot;
+                        for (AActor* Actor : SelectedActors)
+                        {
+                            if (!Actor || Actor == PrimaryActor)
+                                continue;
+                            USceneComponent* Root = Actor->GetRootComponent();
+                            if (Root)
+                            {
+                                FRotator Other = Root->GetCachedEditRotator();
+                                Root->SetRelativeRotation(Other + Delta);
+                            }
+                        }
+                    }
+                    RootComp->ApplyCachedEditRotator();
+                    EditorEngine->GetGizmo()->UpdateGizmoTransform();
+                }
+            }
+            if (ImGui::DragFloat3("Scale", ScaleArray, 0.1f))
+            {
+                FVector Delta = FVector(ScaleArray[0], ScaleArray[1], ScaleArray[2]) - Scale;
+                for (AActor* Actor : SelectedActors)
+                {
+                    if (Actor)
+                        Actor->SetActorScale(Actor->GetActorScale() + Delta);
+                }
             }
         }
     }
@@ -1518,11 +1555,6 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
         SelectedComponent->GetOwner()->IsTransformLocked() &&
         (Prop.Name == "Location" || Prop.Name == "Rotation" || Prop.Name == "Scale");
 
-    if (bIsLockedTransformProperty)
-    {
-        ImGui::BeginDisabled();
-    }
-
     switch (Prop.Type)
     {
     case EPropertyType::Bool:
@@ -1606,24 +1638,39 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
     }
     case EPropertyType::Vec3:
     {
-        float* Val = static_cast<float*>(Prop.ValuePtr);
-        bChanged = ImGui::DragFloat3(WidgetLabel.c_str(), Val, Prop.Speed);
+        if (bIsLockedTransformProperty)
+        {
+            const FVector* Val = static_cast<const FVector*>(Prop.ValuePtr);
+            RenderReadOnlyVector3(DisplayName.c_str(), *Val);
+        }
+        else
+        {
+            float* Val = static_cast<float*>(Prop.ValuePtr);
+            bChanged = ImGui::DragFloat3(WidgetLabel.c_str(), Val, Prop.Speed);
+        }
         break;
     }
     case EPropertyType::Rotator:
     {
-        // FRotator 메모리 레이아웃 [Pitch,Yaw,Roll] → UI X=Roll(X축), Y=Pitch(Y축), Z=Yaw(Z축)
-        FRotator* Rot = static_cast<FRotator*>(Prop.ValuePtr);
-        float RotXYZ[3] = { Rot->Roll, Rot->Pitch, Rot->Yaw };
-        bChanged = ImGui::DragFloat3(WidgetLabel.c_str(), RotXYZ, Prop.Speed);
-        if (bChanged)
+        if (bIsLockedTransformProperty)
         {
-            Rot->Roll = RotXYZ[0];
-            Rot->Pitch = RotXYZ[1];
-            Rot->Yaw = RotXYZ[2];
-            if (SelectedComponent && SelectedComponent->IsA<USceneComponent>())
+            const FRotator* Rot = static_cast<const FRotator*>(Prop.ValuePtr);
+            RenderReadOnlyRotator(DisplayName.c_str(), *Rot);
+        }
+        else
+        {
+            FRotator* Rot = static_cast<FRotator*>(Prop.ValuePtr);
+            float RotXYZ[3] = { Rot->Roll, Rot->Pitch, Rot->Yaw };
+            bChanged = ImGui::DragFloat3(WidgetLabel.c_str(), RotXYZ, Prop.Speed);
+            if (bChanged)
             {
-                static_cast<USceneComponent*>(SelectedComponent)->ApplyCachedEditRotator();
+                Rot->Roll = RotXYZ[0];
+                Rot->Pitch = RotXYZ[1];
+                Rot->Yaw = RotXYZ[2];
+                if (SelectedComponent && SelectedComponent->IsA<USceneComponent>())
+                {
+                    static_cast<USceneComponent*>(SelectedComponent)->ApplyCachedEditRotator();
+                }
             }
         }
         break;
@@ -1949,12 +1996,6 @@ bool FEditorDetailsPanel::RenderDetailsPanel(TArray<FPropertyDescriptor>& Props,
         break;
     }
     }
-
-    if (bIsLockedTransformProperty)
-    {
-        ImGui::EndDisabled();
-    }
-
     if (bChanged && SelectedComponent)
     {
         SelectedComponent->PostEditProperty(Prop.Name.c_str());

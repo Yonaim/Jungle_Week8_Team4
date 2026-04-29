@@ -113,6 +113,7 @@ void FDrawCollector::CollectWorld(UWorld* World, FRenderCollectContext& CollectC
         FShadowMapPass* ShadowPass = static_cast<FShadowMapPass*>(Pass);
         if (ShadowPass && CollectContext.Renderer->GetFD3DDevice().GetDevice())
         {
+            SCOPE_STAT_CAT("Shadow Atlas Update", "6_ShadowCPU");
             for (FLightProxy* Light : CollectedSceneData.Lights.VisibleLightProxies)
             {
                 if (Light)

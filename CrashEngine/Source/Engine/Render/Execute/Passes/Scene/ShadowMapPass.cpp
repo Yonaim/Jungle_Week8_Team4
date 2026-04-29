@@ -19,6 +19,7 @@
 #include <cstring>
 
 #include "Profiling/Stats.h"
+#include "Profiling/GPUProfiler.h"
 
 namespace
 {
@@ -457,6 +458,7 @@ void FShadowMapPass::BuildDrawCommands(FRenderPipelineContext& Context, const FP
 
 void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
 {
+    SCOPE_STAT_CAT("Shadow Depth Submission", "6_ShadowCPU");
     static bool bLoggedInvalidItemIndex = false;
     static bool bLoggedMissingAtlasPage = false;
     static bool bLoggedMomentResourceFailure = false;
@@ -490,157 +492,171 @@ void FShadowMapPass::SubmitDrawCommands(FRenderPipelineContext& Context)
     TArray<FDrawCommand>& Commands = Context.DrawCommandList->GetCommands();
     bool ClearedSlices[ShadowAtlas::MaxPages][ShadowAtlas::SliceCount] = {};
 
-    uint32 CurrentIdx = GlobalStart;
-    while (CurrentIdx < GlobalEnd)
     {
-        const uint8 ItemIndex = static_cast<uint8>((Commands[CurrentIdx].SortKey >> 52) & 0xFF);
-        const uint32 RangeStart = CurrentIdx;
-        while (CurrentIdx < GlobalEnd && static_cast<uint8>((Commands[CurrentIdx].SortKey >> 52) & 0xFF) == ItemIndex)
+        GPU_SCOPE_STAT_CAT("Shadow Depth Pass", "6_ShadowGPU");
+        uint32 CurrentIdx = GlobalStart;
+        while (CurrentIdx < GlobalEnd)
         {
-            ++CurrentIdx;
-        }
-        const uint32 RangeEnd = CurrentIdx;
-
-        if (ItemIndex >= RenderItems.size())
-        {
-            if (!bLoggedInvalidItemIndex)
+            const uint8 ItemIndex = static_cast<uint8>((Commands[CurrentIdx].SortKey >> 52) & 0xFF);
+            const uint32 RangeStart = CurrentIdx;
+            while (CurrentIdx < GlobalEnd && static_cast<uint8>((Commands[CurrentIdx].SortKey >> 52) & 0xFF) == ItemIndex)
             {
-                UE_LOG(Render, Warning, "Shadow draw command referenced invalid render item index %u.", ItemIndex);
-                bLoggedInvalidItemIndex = true;
+                ++CurrentIdx;
             }
-            continue;
-        }
+            const uint32 RangeEnd = CurrentIdx;
 
-        const FShadowRenderItem& Item = RenderItems[ItemIndex];
-        if (!Item.Allocation || !Item.Allocation->bAllocated)
-        {
-            continue;
-        }
-
-        FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(Item.Allocation->AtlasPageIndex);
-        if (!AtlasPage)
-        {
-            if (!bLoggedMissingAtlasPage)
+            if (ItemIndex >= RenderItems.size())
             {
-                UE_LOG(Render, Warning, "Missing shadow atlas page %u for %s.", Item.Allocation->AtlasPageIndex, GetLightLabel(Item.Light).c_str());
-                bLoggedMissingAtlasPage = true;
-            }
-            continue;
-        }
-
-        const EShadowFilterMethod ShadowFilterMethod = GetShadowFilterMethod();
-        const bool bUsesFilterableMoments =
-            ShadowFilterMethod == EShadowFilterMethod::VSM ||
-            ShadowFilterMethod == EShadowFilterMethod::ESM;
-        if (bUsesFilterableMoments && !AtlasPage->EnsureMomentResources(Context.Device->GetDevice()))
-        {
-            if (!bLoggedMomentResourceFailure)
-            {
-                UE_LOG(Render, Warning, "Failed to ensure shadow moment resources for %s at %s.",
-                    GetLightLabel(Item.Light).c_str(), FormatShadowAllocation(Item.Allocation).c_str());
-                bLoggedMomentResourceFailure = true;
-            }
-            continue;
-        }
-
-        ID3D11DepthStencilView* DSV = AtlasPage->GetSliceDSV(Item.Allocation->SliceIndex);
-        ID3D11RenderTargetView* RTV = AtlasPage->GetMomentSliceRTV(Item.Allocation->SliceIndex);
-        if (!DSV)
-        {
-            if (!bLoggedMissingSliceDSV)
-            {
-                UE_LOG(Render, Warning, "Missing shadow DSV for %s at %s.", GetLightLabel(Item.Light).c_str(), FormatShadowAllocation(Item.Allocation).c_str());
-                bLoggedMissingSliceDSV = true;
-            }
-            continue;
-        }
-
-        if (!ClearedSlices[Item.Allocation->AtlasPageIndex][Item.Allocation->SliceIndex])
-        {
-            Context.Context->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, 0.0f, 0);
-            if (RTV)
-            {
-                float ClearMomentColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-                if (ShadowFilterMethod == EShadowFilterMethod::VSM)
+                if (!bLoggedInvalidItemIndex)
                 {
-                    // Unwritten texels should behave like "no occluder", i.e. the far plane.
-                    ClearMomentColor[0] = 1.0f;
-                    ClearMomentColor[1] = 1.0f;
+                    UE_LOG(Render, Warning, "Shadow draw command referenced invalid render item index %u.", ItemIndex);
+                    bLoggedInvalidItemIndex = true;
                 }
-                else if (ShadowFilterMethod == EShadowFilterMethod::ESM)
-                {
-                    const float ShadowESMExponent = Item.Light ? Item.Light->ShadowESMExponent : 40.0f;
-                    ClearMomentColor[0] = std::exp(-std::max(ShadowESMExponent, 0.01f));
-                }
-                Context.Context->ClearRenderTargetView(RTV, ClearMomentColor);
+                continue;
             }
-            ClearedSlices[Item.Allocation->AtlasPageIndex][Item.Allocation->SliceIndex] = true;
-        }
 
-        D3D11_VIEWPORT ShadowViewport = {};
-        ShadowViewport.TopLeftX = static_cast<float>(Item.Allocation->ViewportRect.X);
-        ShadowViewport.TopLeftY = static_cast<float>(Item.Allocation->ViewportRect.Y);
-        ShadowViewport.Width = static_cast<float>(Item.Allocation->ViewportRect.Width);
-        ShadowViewport.Height = static_cast<float>(Item.Allocation->ViewportRect.Height);
-        ShadowViewport.MinDepth = 0.0f;
-        ShadowViewport.MaxDepth = 1.0f;
-        Context.Context->RSSetViewports(1, &ShadowViewport);
-
-        D3D11_RECT ScissorRect = {};
-        ScissorRect.left = static_cast<LONG>(Item.Allocation->ViewportRect.X);
-        ScissorRect.top = static_cast<LONG>(Item.Allocation->ViewportRect.Y);
-        ScissorRect.right = static_cast<LONG>(Item.Allocation->ViewportRect.X + Item.Allocation->ViewportRect.Width);
-        ScissorRect.bottom = static_cast<LONG>(Item.Allocation->ViewportRect.Y + Item.Allocation->ViewportRect.Height);
-        Context.Context->RSSetScissorRects(1, &ScissorRect);
-
-        Context.Context->OMSetRenderTargets(1, &RTV, DSV);
-
-        FFrameCBData ShadowFrameData = {};
-        ShadowFrameData.View = Item.ShadowView.View;
-        ShadowFrameData.Projection = Item.ShadowView.Projection;
-        ShadowFrameData.InvViewProj = Item.ShadowView.ViewProj.GetInverse();
-        Context.Resources->FrameBuffer.Update(Context.Context, &ShadowFrameData, sizeof(FFrameCBData));
-
-        FShadowPassCBData ShadowPassData = {};
-        ShadowPassData.ShadowView = Item.ShadowView.View;
-        ShadowPassData.ShadowProjection = Item.ShadowView.Projection;
-        ShadowPassData.ShadowInvViewProj = Item.ShadowView.ViewProj.GetInverse();
-        ShadowPassData.ShadowNearZ = Item.ShadowView.NearZ;
-        ShadowPassData.ShadowFarZ = Item.ShadowView.FarZ;
-        ShadowPassData.ShadowProjectionType = Item.ShadowView.ProjectionType;
-        ShadowPassData.ShadowESMExponent = Item.Light ? Item.Light->ShadowESMExponent : 40.0f;
-        Context.Resources->ShadowPassBuffer.Update(Context.Context, &ShadowPassData, sizeof(FShadowPassCBData));
-
-        ID3D11Buffer* ShadowPassCB = Context.Resources->ShadowPassBuffer.GetBuffer();
-        Context.Context->VSSetConstantBuffers(ECBSlot::ShadowPass, 1, &ShadowPassCB);
-        Context.Context->PSSetConstantBuffers(ECBSlot::ShadowPass, 1, &ShadowPassCB);
-
-        Context.DrawCommandList->SubmitRange(RangeStart, RangeEnd, *Context.Device, Context.Context, *Context.StateCache);
-    }
-
-    for (uint32 PageIndex = 0; PageIndex < AtlasPool.GetPageCount(); ++PageIndex)
-    {
-        FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(PageIndex);
-        if (!AtlasPage)
-        {
-            continue;
-        }
-
-        for (uint32 SliceIndex = 0; SliceIndex < ShadowAtlas::SliceCount; ++SliceIndex)
-        {
-            if (!ClearedSlices[PageIndex][SliceIndex])
+            const FShadowRenderItem& Item = RenderItems[ItemIndex];
+            if (!Item.Allocation || !Item.Allocation->bAllocated)
             {
                 continue;
             }
 
-            MomentFilter.BlurMomentTextureSlice(Context, *AtlasPage, SliceIndex);
-        }
+            FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(Item.Allocation->AtlasPageIndex);
+            if (!AtlasPage)
+            {
+                if (!bLoggedMissingAtlasPage)
+                {
+                    UE_LOG(Render, Warning, "Missing shadow atlas page %u for %s.", Item.Allocation->AtlasPageIndex, GetLightLabel(Item.Light).c_str());
+                    bLoggedMissingAtlasPage = true;
+                }
+                continue;
+            }
 
-        if (ID3D11ShaderResourceView* MomentSRV = AtlasPage->GetMomentArraySRV())
+            const EShadowFilterMethod ShadowFilterMethod = GetShadowFilterMethod();
+            const bool bUsesFilterableMoments =
+                ShadowFilterMethod == EShadowFilterMethod::VSM ||
+                ShadowFilterMethod == EShadowFilterMethod::ESM;
+            if (bUsesFilterableMoments && !AtlasPage->EnsureMomentResources(Context.Device->GetDevice()))
+            {
+                if (!bLoggedMomentResourceFailure)
+                {
+                    UE_LOG(Render, Warning, "Failed to ensure shadow moment resources for %s at %s.",
+                        GetLightLabel(Item.Light).c_str(), FormatShadowAllocation(Item.Allocation).c_str());
+                    bLoggedMomentResourceFailure = true;
+                }
+                continue;
+            }
+
+            ID3D11DepthStencilView* DSV = AtlasPage->GetSliceDSV(Item.Allocation->SliceIndex);
+            ID3D11RenderTargetView* RTV = AtlasPage->GetMomentSliceRTV(Item.Allocation->SliceIndex);
+            if (!DSV)
+            {
+                if (!bLoggedMissingSliceDSV)
+                {
+                    UE_LOG(Render, Warning, "Missing shadow DSV for %s at %s.", GetLightLabel(Item.Light).c_str(), FormatShadowAllocation(Item.Allocation).c_str());
+                    bLoggedMissingSliceDSV = true;
+                }
+                continue;
+            }
+
+            if (!ClearedSlices[Item.Allocation->AtlasPageIndex][Item.Allocation->SliceIndex])
+            {
+                Context.Context->ClearDepthStencilView(DSV, D3D11_CLEAR_DEPTH, 0.0f, 0);
+                if (RTV)
+                {
+                    float ClearMomentColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+                    if (ShadowFilterMethod == EShadowFilterMethod::VSM)
+                    {
+                        ClearMomentColor[0] = 1.0f;
+                        ClearMomentColor[1] = 1.0f;
+                    }
+                    else if (ShadowFilterMethod == EShadowFilterMethod::ESM)
+                    {
+                        const float ShadowESMExponent = Item.Light ? Item.Light->ShadowESMExponent : 40.0f;
+                        ClearMomentColor[0] = std::exp(-std::max(ShadowESMExponent, 0.01f));
+                    }
+                    Context.Context->ClearRenderTargetView(RTV, ClearMomentColor);
+                }
+                ClearedSlices[Item.Allocation->AtlasPageIndex][Item.Allocation->SliceIndex] = true;
+            }
+
+            D3D11_VIEWPORT ShadowViewport = {};
+            ShadowViewport.TopLeftX = static_cast<float>(Item.Allocation->ViewportRect.X);
+            ShadowViewport.TopLeftY = static_cast<float>(Item.Allocation->ViewportRect.Y);
+            ShadowViewport.Width = static_cast<float>(Item.Allocation->ViewportRect.Width);
+            ShadowViewport.Height = static_cast<float>(Item.Allocation->ViewportRect.Height);
+            ShadowViewport.MinDepth = 0.0f;
+            ShadowViewport.MaxDepth = 1.0f;
+            Context.Context->RSSetViewports(1, &ShadowViewport);
+
+            D3D11_RECT ScissorRect = {};
+            ScissorRect.left = static_cast<LONG>(Item.Allocation->ViewportRect.X);
+            ScissorRect.top = static_cast<LONG>(Item.Allocation->ViewportRect.Y);
+            ScissorRect.right = static_cast<LONG>(Item.Allocation->ViewportRect.X + Item.Allocation->ViewportRect.Width);
+            ScissorRect.bottom = static_cast<LONG>(Item.Allocation->ViewportRect.Y + Item.Allocation->ViewportRect.Height);
+            Context.Context->RSSetScissorRects(1, &ScissorRect);
+
+            Context.Context->OMSetRenderTargets(1, &RTV, DSV);
+
+            FFrameCBData ShadowFrameData = {};
+            ShadowFrameData.View = Item.ShadowView.View;
+            ShadowFrameData.Projection = Item.ShadowView.Projection;
+            ShadowFrameData.InvViewProj = Item.ShadowView.ViewProj.GetInverse();
+            Context.Resources->FrameBuffer.Update(Context.Context, &ShadowFrameData, sizeof(FFrameCBData));
+
+            FShadowPassCBData ShadowPassData = {};
+            ShadowPassData.ShadowView = Item.ShadowView.View;
+            ShadowPassData.ShadowProjection = Item.ShadowView.Projection;
+            ShadowPassData.ShadowInvViewProj = Item.ShadowView.ViewProj.GetInverse();
+            ShadowPassData.ShadowNearZ = Item.ShadowView.NearZ;
+            ShadowPassData.ShadowFarZ = Item.ShadowView.FarZ;
+            ShadowPassData.ShadowProjectionType = Item.ShadowView.ProjectionType;
+            ShadowPassData.ShadowESMExponent = Item.Light ? Item.Light->ShadowESMExponent : 40.0f;
+            Context.Resources->ShadowPassBuffer.Update(Context.Context, &ShadowPassData, sizeof(FShadowPassCBData));
+
+            ID3D11Buffer* ShadowPassCB = Context.Resources->ShadowPassBuffer.GetBuffer();
+            Context.Context->VSSetConstantBuffers(ECBSlot::ShadowPass, 1, &ShadowPassCB);
+            Context.Context->PSSetConstantBuffers(ECBSlot::ShadowPass, 1, &ShadowPassCB);
+
+            Context.DrawCommandList->SubmitRange(RangeStart, RangeEnd, *Context.Device, Context.Context, *Context.StateCache);
+            FShadowPipelineStats::RecordShadowDepthDrawCalls(RangeEnd - RangeStart);
+            FShadowPipelineStats::RecordEstimatedBandwidthBytes(
+                static_cast<uint64>(Item.Allocation->ViewportRect.Width) *
+                static_cast<uint64>(Item.Allocation->ViewportRect.Height) *
+                4ull);
+        }
+    }
+    {
+        GPU_SCOPE_STAT_CAT("Shadow Atlas Update GPU", "6_ShadowGPU");
+        for (uint32 PageIndex = 0; PageIndex < AtlasPool.GetPageCount(); ++PageIndex)
         {
-            ID3D11RenderTargetView* NullRTV = nullptr;
-            Context.Context->OMSetRenderTargets(1, &NullRTV, nullptr);
-            Context.Context->GenerateMips(MomentSRV);
+            FShadowAtlasPage* AtlasPage = AtlasPool.GetPage(PageIndex);
+            if (!AtlasPage)
+            {
+                continue;
+            }
+
+            for (uint32 SliceIndex = 0; SliceIndex < ShadowAtlas::SliceCount; ++SliceIndex)
+            {
+                if (!ClearedSlices[PageIndex][SliceIndex])
+                {
+                    continue;
+                }
+
+                MomentFilter.BlurMomentTextureSlice(Context, *AtlasPage, SliceIndex);
+                FShadowPipelineStats::RecordAtlasUpdate();
+                FShadowPipelineStats::RecordEstimatedBandwidthBytes(
+                    static_cast<uint64>(ShadowAtlas::AtlasSize) *
+                    static_cast<uint64>(ShadowAtlas::AtlasSize) *
+                    16ull);
+            }
+
+            if (ID3D11ShaderResourceView* MomentSRV = AtlasPage->GetMomentArraySRV())
+            {
+                ID3D11RenderTargetView* NullRTV = nullptr;
+                Context.Context->OMSetRenderTargets(1, &NullRTV, nullptr);
+                Context.Context->GenerateMips(MomentSRV);
+            }
         }
     }
 

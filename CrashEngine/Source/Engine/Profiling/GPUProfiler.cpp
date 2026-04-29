@@ -99,6 +99,7 @@ void FGPUProfiler::EndFrame()
         return;
 
     Context->End(Frames[WriteIndex].DisjointQuery);
+    bFrameActive = false;
 
     // 프레임 스왑
     WriteIndex = (WriteIndex + 1) % FRAME_COUNT;
@@ -134,47 +135,52 @@ void FGPUProfiler::EndTimestamp(uint32 Index)
 
 void FGPUProfiler::CollectPreviousFrame()
 {
-    uint32 ReadIndex = (WriteIndex + 1) % FRAME_COUNT;
-    FFrameData& Read = Frames[ReadIndex];
-
-    if (!Read.bActive)
-        return; // 수집할 데이터 없음
-
-    D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData;
-    HRESULT hr = Context->GetData(Read.DisjointQuery, &disjointData, sizeof(disjointData), 0);
-    if (hr != S_OK)
-        return; // 아직 준비 안 됨 — 다음 프레임에 재시도
-
-    Read.bActive = false; // 결과 소비 완료
-
-    if (disjointData.Disjoint || Read.UsedCount == 0)
+    for (uint32 ReadIndex = 0; ReadIndex < FRAME_COUNT; ++ReadIndex)
     {
-        return;
-    }
-
-    double InvFrequency = 1000.0 / static_cast<double>(disjointData.Frequency); // ms 단위
-
-    for (uint32 i = 0; i < Read.UsedCount; ++i)
-    {
-        UINT64 tsBegin = 0, tsEnd = 0;
-        if (Context->GetData(Read.Timestamps[i].BeginQuery, &tsBegin, sizeof(UINT64), 0) != S_OK)
-            continue;
-        if (Context->GetData(Read.Timestamps[i].EndQuery, &tsEnd, sizeof(UINT64), 0) != S_OK)
-            continue;
-
-        double ElapsedMs = static_cast<double>(tsEnd - tsBegin) * InvFrequency;
-        double ElapsedSec = ElapsedMs * 0.001;
-
-        const char* Name = Read.Timestamps[i].Name;
-        const char* Cat = Read.Timestamps[i].Category;
-        FStatAccum& Accum = GPUStats[Name];
-        if (!Accum.Name)
+        FFrameData& Read = Frames[ReadIndex];
+        if (!Read.bActive)
         {
-            Accum.Name = Name;
-            Accum.Category = Cat;
+            continue;
         }
-        Accum.FrameCallCount++;
-        Accum.FrameTotal += ElapsedSec;
+
+        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData;
+        HRESULT hr = Context->GetData(Read.DisjointQuery, &disjointData, sizeof(disjointData), 0);
+        if (hr != S_OK)
+        {
+            continue;
+        }
+
+        Read.bActive = false;
+
+        if (disjointData.Disjoint || Read.UsedCount == 0)
+        {
+            continue;
+        }
+
+        double InvFrequency = 1000.0 / static_cast<double>(disjointData.Frequency);
+        for (uint32 i = 0; i < Read.UsedCount; ++i)
+        {
+            UINT64 tsBegin = 0;
+            UINT64 tsEnd = 0;
+            if (Context->GetData(Read.Timestamps[i].BeginQuery, &tsBegin, sizeof(UINT64), 0) != S_OK)
+                continue;
+            if (Context->GetData(Read.Timestamps[i].EndQuery, &tsEnd, sizeof(UINT64), 0) != S_OK)
+                continue;
+
+            double ElapsedMs = static_cast<double>(tsEnd - tsBegin) * InvFrequency;
+            double ElapsedSec = ElapsedMs * 0.001;
+
+            const char* Name = Read.Timestamps[i].Name;
+            const char* Cat = Read.Timestamps[i].Category;
+            FStatAccum& Accum = GPUStats[Name];
+            if (!Accum.Name)
+            {
+                Accum.Name = Name;
+                Accum.Category = Cat;
+            }
+            Accum.FrameCallCount++;
+            Accum.FrameTotal += ElapsedSec;
+        }
     }
 }
 

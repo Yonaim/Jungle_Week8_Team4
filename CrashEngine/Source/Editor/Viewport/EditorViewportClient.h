@@ -140,6 +140,7 @@ private:
     TArray<FPilotedHelperVisibilityState> SavedPilotedHelperVisibility;
     FVector SavedViewLocation = FVector(0.0f, 0.0f, 0.0f);
     FRotator SavedViewRotation;
+    bool bWarnedLockedPilotTransformAttempt = false;
     ELevelViewportType SavedViewportType = ELevelViewportType::Perspective;
     EEditorViewportPlayState PlayState = EEditorViewportPlayState::Stopped;
     float PaneToolbarHeight = 0.0f;

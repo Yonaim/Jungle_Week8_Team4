@@ -554,9 +554,10 @@ void UEditorEngine::Render(float DeltaTime)
 {
 #if STATS
     FShadowCacheStats::ResetFrame();
+    FShadowPipelineStats::ResetFrame();
     FStatManager::Get().TakeSnapshot();
-    FGPUProfiler::Get().TakeSnapshot();
     FGPUProfiler::Get().BeginFrame();
+    FGPUProfiler::Get().TakeSnapshot();
 #endif
 
     for (FLevelEditorViewportClient* ViewportClient : GetLevelViewportClients())
@@ -606,17 +607,6 @@ void UEditorEngine::RenderViewport(FLevelEditorViewportClient* VC)
 
     const FViewportRenderOptions& Opts = VC->GetRenderOptions();
     FShowFlags EffectiveShowFlags = Opts.ShowFlags;
-    if (VC->IsPilotingActor())
-    {
-        EffectiveShowFlags.bUUIDText = false;
-        EffectiveShowFlags.bGrid = false;
-        EffectiveShowFlags.bWorldAxis = false;
-        EffectiveShowFlags.bSceneBVH = false;
-        EffectiveShowFlags.bSceneOctree = false;
-        EffectiveShowFlags.bWorldBound = false;
-        EffectiveShowFlags.bLightDebugLines = false;
-        EffectiveShowFlags.bLightHitMap = false;
-    }
     const FShowFlags& ShowFlags = EffectiveShowFlags;
     EViewMode ViewMode = Opts.ViewMode;
 
