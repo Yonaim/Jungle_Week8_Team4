@@ -2,7 +2,7 @@ Package: vcpkg-cmake
 Version: 2024-04-23
 Architecture: x64-windows
 Multi-Arch: same
-Abi: a1586085658fac12c0394aa80f27f36dad647aad34851c6c489792651e475815
+Abi: ca9e4f78c3f00e24dbf19280aea1dec397a0fdebdaac85a9b2ac8229a3a3c90e
 Status: install ok installed
 
 Package: vcpkg-cmake-get-vars
@@ -10,14 +10,14 @@ Version: 2025-05-29
 Depends: vcpkg-cmake
 Architecture: x64-windows
 Multi-Arch: same
-Abi: 5e6ea5bfb4da7370989e6946425a83a903eaa9bf5c1cd34656ad1936138eefa7
+Abi: 0b7dd13d99c99cbb9341deda1f242025d5e521863f2454106d558656329c7043
 Status: install ok installed
 
 Package: vcpkg-cmake-config
 Version: 2024-05-23
 Architecture: x64-windows
 Multi-Arch: same
-Abi: af7e0437f41d292d9670c6a893016c30f4f95a01038474705a6095fc6a521cc7
+Abi: 3d4114347834eba1c517bbbfa53c3db009d97532fbfb4f4fdd913196a614af15
 Status: install ok installed
 
 Package: luajit
@@ -25,7 +25,7 @@ Version: 2026-03-30
 Depends: vcpkg-cmake, vcpkg-cmake-config, vcpkg-cmake-get-vars
 Architecture: x64-windows
 Multi-Arch: same
-Abi: f3b49af8347a680c65e3f0d89e897b03b9e9144e0741dbc7ebb65da8fc6f95f2
+Abi: 24f500d1b94c3fde01b1ead043a14720ef083d0da2dc66a5c4a40479809f3239
 Description: LuaJIT is a Just-In-Time (JIT) compiler for the Lua programming language.
 Status: install ok installed
 
